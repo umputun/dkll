@@ -78,7 +78,7 @@ func (c *Remote) getNext(fromID string) (items []core.LogEntry, lastID string, o
 		return items, c.id, false
 	}
 
-	return items, items[len(items)-1].ID.Hex(), true
+	return items, items[len(items)-1].ID, true
 }
 
 func (c *Remote) interval() time.Duration { return c.updateInterval }

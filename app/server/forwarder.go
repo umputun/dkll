@@ -9,16 +9,22 @@ import (
 	"github.com/umputun/dkll/app/core"
 )
 
-// Forwarder tails syslog messages, parses entries and pushes Publisher
+// Forwarder tails syslog messages, parses entries and pushes to Publisher (store) and file logger(s)
 type Forwarder struct {
 	Publisher  Publisher
-	Syslog     Syslog
+	Syslog     SyslogBackgroundReader
 	FileLogger *FileLogger
 }
 
+// Publisher to store
 type Publisher interface {
 	Publish(buffer []core.LogEntry) (err error)
 	LastPublished() (entry core.LogEntry, err error)
+}
+
+// SyslogBackgroundReader provides aysnc runner returning the channel for incoming messages
+type SyslogBackgroundReader interface {
+	Go(ctx context.Context) <-chan string
 }
 
 // Run executes forwarder in endless (blocking) loop
@@ -27,14 +33,9 @@ func (f *Forwarder) Run(ctx context.Context) {
 	messages := make(chan core.LogEntry, 10000)
 	f.backgroundPublisher(ctx, messages)
 
-	go func() {
-		if err := f.FileLogger.Do(ctx); err != nil {
-			log.Printf("[WARN] file logger error %v", err)
-		}
-	}()
-
-	pe, _ := f.Publisher.LastPublished()
-	log.Printf("[DEBUG] last published = [%s : %s]", pe.ID.Hex(), pe)
+	if pe, err := f.Publisher.LastPublished(); err == nil {
+		log.Printf("[DEBUG] last published [%s : %s]", pe.ID, pe)
+	}
 
 	syslogCh := f.Syslog.Go(ctx)
 	for {
@@ -80,6 +81,7 @@ func (f *Forwarder) backgroundPublisher(ctx context.Context, messages <-chan cor
 		for {
 			select {
 			case <-ctx.Done():
+				log.Print("[DEBUG] background publisher terminated")
 				return
 			case msg := <-messages:
 				buffer = append(buffer, msg)

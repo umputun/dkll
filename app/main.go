@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 
 	log "github.com/go-pkgz/lgr"
-
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -20,12 +20,18 @@ import (
 
 var opts struct {
 	Server struct {
-		Mongo        []string `long:"mongo" env:"DKLL_MONGO" description:"mongo host:port"`
-		MongoPasswd  string   `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
-		MongoDelay   int      `long:"mongo-delay" env:"MONGO_DELAY" default:"0" description:"mongo initial delay"`
-		MongoDB      string   `long:"mongo-db" env:"MONGO_DB" default:"dklogger" description:"mongo database name"`
-		FileBackup   string   `long:"backup" default:"" env:"BACK_LOG" description:"backup log file location"`
-		EnableMerged bool     `long:"merged"  env:"BACK_MRG" description:"enable merged log file"`
+		Port               int           `long:"port" env:"PORT" default:"8080" description:"rest server port"`
+		Mongo              []string      `long:"mongo" env:"DKLL_MONGO" required:"true" env-delim:"," description:"mongo host:port"`
+		MongoPasswd        string        `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
+		MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
+		MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
+		MongoDB            string        `long:"mongo-db" env:"MONGO_DB" default:"dkll" description:"mongo database name"`
+		FileBackupLocation string        `long:"backup" default:"" env:"BACK_LOG" description:"backup log files location"`
+		EnableMerged       bool          `long:"merged"  env:"BACK_MRG" description:"enable merged log file"`
+		LogLimits          struct {
+			Container LogLimit `group:"container" namespace:"container" env-namespace:"CONTAINER" description:"container limits"`
+			Merged    LogLimit `group:"merged" namespace:"merged" env-namespace:"MERGED" description:"merged log limits"`
+		} `group:"limit" namespace:"limit" env-namespace:"LIMIT"`
 	} `command:"server" description:"server mode"`
 
 	Client struct {
@@ -43,6 +49,12 @@ var opts struct {
 	} `command:"client" description:"client mode"`
 
 	Dbg bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
+}
+
+type LogLimit struct {
+	MaxSize    int `long:"max-size" env:"MAX_SIZE" default:"100" description:"max log size, in megabytes"`
+	MaxBackups int `long:"max-backups" env:"MAX_BACKUPS" default:"10" description:"max number of rotated files"`
+	MaxAge     int `long:"max-age" env:"MAX_AGE" default:"30" description:"max age of rotated files"`
 }
 
 var revision = "unknown"
@@ -75,58 +87,75 @@ func runServer() error {
 	fmt.Printf("dkll server %s\n", revision)
 	log.Printf("[DEBUG] server mode activated %s", revision)
 
+	// default loggers empty
 	mergeLogWriter := ioutil.Discard
 	containerLogFactory := func(instance, container string) io.Writer { return ioutil.Discard }
 
-	if opts.Server.FileBackup != "" {
-		log.Printf("[INFO] backup file %s", opts.Server.FileBackup)
+	if opts.Server.FileBackupLocation != "" {
+		log.Printf("[INFO] backup files location %s", opts.Server.FileBackupLocation)
 		var err error
 
-		mergeLogWriter = &lumberjack.Logger{
-			Filename:   opts.Server.FileBackup,
-			MaxSize:    1024 * 10, // megabytes
-			MaxBackups: 10,
-			MaxAge:     30, // in days
-			Compress:   true,
+		if opts.Server.EnableMerged {
+			if err := os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
+				return err
+			}
+			mergeLogWriter = &lumberjack.Logger{
+				Filename:   path.Join(opts.Server.FileBackupLocation, "/dkll.log"),
+				MaxSize:    opts.Server.LogLimits.Merged.MaxSize,
+				MaxBackups: opts.Server.LogLimits.Merged.MaxBackups,
+				MaxAge:     opts.Server.LogLimits.Merged.MaxAge,
+				Compress:   true,
+			}
+			log.Printf("[DEBUG] make merged rotated, %+v", mergeLogWriter)
 		}
 
 		containerLogFactory = func(instance, container string) io.Writer {
-			log.Printf("[DEBUG] make rotated log for %s/%s", instance, container)
-			if err := os.MkdirAll(path.Dir(opts.Server.FileBackup)+"/"+instance, 0755); err != nil {
-				log.Printf("[WARN] can't make directory %s, %v", path.Dir(opts.Server.FileBackup)+"/"+instance, err)
+			fname := path.Join(opts.Server.FileBackupLocation, instance, container+".log")
+			if err := os.MkdirAll(path.Dir(fname), 0755); err != nil {
+				log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
+				return ioutil.Discard
 			}
-			fname := fmt.Sprintf("%s/%s/%s.log", path.Dir(opts.Server.FileBackup), instance, container)
 			singleWriter := &lumberjack.Logger{
 				Filename:   fname,
-				MaxSize:    1024 * 10, // megabytes
-				MaxBackups: 10,
-				MaxAge:     30, // in days
+				MaxSize:    opts.Server.LogLimits.Container.MaxSize,
+				MaxBackups: opts.Server.LogLimits.Container.MaxBackups,
+				MaxAge:     opts.Server.LogLimits.Container.MaxAge,
 				Compress:   true,
 			}
 			if err != nil {
 				log.Fatalf("[ERROR] failed to open %s, %v", fname, err)
 			}
+			log.Printf("[DEBUG] make container rotated log for %s/%s, %+v", instance, container, singleWriter)
 			return singleWriter
 		}
 	}
 
-	mg, err := server.NewMongo(opts.Server.Mongo, opts.Server.MongoPasswd, opts.Server.MongoDB, opts.Server.MongoDelay)
+	mg, err := server.NewMongo(opts.Server.Mongo, opts.Server.MongoPasswd, opts.Server.MongoDB,
+		opts.Server.MongoTimeout, opts.Server.MongoDelay)
 	if err != nil {
 		return err
 	}
 
 	restServer := server.RestServer{
+		Port:        opts.Server.Port,
 		DataService: mg,
 		Limit:       100,
 		Version:     revision,
 	}
-	go restServer.Run()
+	go restServer.Run(context.TODO())
 
 	forwarder := server.Forwarder{
 		Publisher:  mg,
-		Syslog:     server.Syslog{},
+		Syslog:     &server.Syslog{},
 		FileLogger: server.NewFileLogger(containerLogFactory, mergeLogWriter),
 	}
+
+	go func() {
+		if err := forwarder.FileLogger.Do(context.TODO()); err != nil {
+			log.Printf("[WARN] file logger error %v", err)
+		}
+	}()
+
 	forwarder.Run(context.TODO()) // blocking on forwarder
 	return nil
 }
@@ -136,7 +165,7 @@ func runClient() error {
 	var cli client.Cli
 
 	request := core.Request{
-		Max:        100,
+		Limit:      100,
 		Containers: opts.Client.Containers,
 		Hosts:      opts.Client.Hosts,
 		Excludes:   opts.Client.Excludes,

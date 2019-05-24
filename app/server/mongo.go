@@ -18,32 +18,39 @@ type Mongo struct {
 	*mongo.Connection
 }
 
-// NewMongo makes Mongo accessor
-func NewMongo(address []string, password string, dbName string, delay int) (res *Mongo, err error) {
-	log.Printf("[INFO] make new mongo server with ip=%v, db=%s, delay=%dsecs", address, dbName, delay)
-	mg, err := mongo.NewServer(
-		mgo.DialInfo{
-			Addrs:    address,
-			AppName:  "dkll",
-			Database: dbName,
-			Username: "root",
-			Password: password,
-			Timeout:  time.Minute,
-		},
-		mongo.ServerParams{
-			Delay:           delay,
-			ConsistencyMode: mgo.Monotonic,
-		},
-	)
+type mongoLogEntry struct {
+	ID        bson.ObjectId `bson:"_id,omitempty"`
+	Host      string        `bson:"host"`
+	Container string        `bson:"container"`
+	Pid       int           `bson:"pid"`
+	Msg       string        `bson:"msg"`
+	Ts        time.Time     `bson:"ts"`
+	CreatedTs time.Time     `bson:"cts"`
+}
 
-	return &Mongo{mongo.NewConnection(mg, dbName, "msgs")}, nil
+// NewMongo makes Mongo accessor
+func NewMongo(address []string, password string, dbName string, timeout, delay time.Duration) (res *Mongo, err error) {
+	log.Printf("[INFO] make new mongo server with ip=%v, db=%s, timeout=%v, delay=%v", address, dbName, timeout, delay)
+	dial := mgo.DialInfo{
+		Addrs:    address,
+		AppName:  "dkll",
+		Database: dbName,
+		Timeout:  timeout,
+	}
+	if password != "" {
+		dial.Username = "root"
+		dial.Password = password
+	}
+
+	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(delay.Seconds()), ConsistencyMode: mgo.Monotonic})
+	return &Mongo{Connection: mongo.NewConnection(mg, dbName, "msgs")}, err
 }
 
 // Publish inserts buffer to mongo
 func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 	recs := make([]interface{}, len(records))
 	for i, v := range records {
-		recs[i] = v
+		recs[i] = m.makeMongoEntry(v)
 	}
 	err = m.WithCollection(func(coll *mgo.Collection) error {
 		return coll.Insert(recs...)
@@ -52,10 +59,11 @@ func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 }
 
 func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
+	var mentry mongoLogEntry
 	err = m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.Find(bson.M{}).Sort("-_id").Limit(1).One(&entry)
+		return coll.Find(bson.M{}).Sort("-_id").Limit(1).One(&mentry)
 	})
-	return entry, err
+	return m.makeLogEntry(mentry), err
 }
 
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
@@ -65,15 +73,19 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 		return nil, err
 	}
 
-	var result []core.LogEntry
+	var mresult []mongoLogEntry
 	err = m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.Find(query).Sort("+_id").All(&result)
+		return coll.Find(query).Sort("+_id").All(&mresult)
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get records for %+v", req)
 	}
-	return result, nil
 
+	result := make([]core.LogEntry, len(mresult))
+	for i, r := range mresult {
+		result[i] = m.makeLogEntry(r)
+	}
+	return result, nil
 }
 
 func (m *Mongo) makeQuery(req core.Request) (b bson.M, err error) {
@@ -144,4 +156,32 @@ func (m *Mongo) init(collection string) error {
 	})
 
 	return err
+}
+
+func (m *Mongo) makeMongoEntry(entry core.LogEntry) mongoLogEntry {
+	res := mongoLogEntry{
+		ID:        m.getBid(entry.ID),
+		Host:      entry.Host,
+		Container: entry.Container,
+		Msg:       entry.Msg,
+		Ts:        entry.Ts,
+		CreatedTs: entry.CreatedTs,
+		Pid:       entry.Pid,
+	}
+	if entry.ID == "" {
+		res.ID = bson.NewObjectId()
+	}
+	return res
+}
+
+func (m *Mongo) makeLogEntry(entry mongoLogEntry) core.LogEntry {
+	return core.LogEntry{
+		ID:        entry.ID.Hex(),
+		Host:      entry.Host,
+		Container: entry.Container,
+		Msg:       entry.Msg,
+		Ts:        entry.Ts,
+		CreatedTs: entry.CreatedTs,
+		Pid:       entry.Pid,
+	}
 }

@@ -9,7 +9,7 @@ import (
 // Every filter is optional. If not defined means "any"
 type Request struct {
 	LastID     string    `json:"id"`
-	Max        int       `json:"max"`                  // max size of response, i.e. number of messages one request can return
+	Limit      int       `json:"max"`                  // max size of response, i.e. number of messages one request can return
 	Hosts      []string  `json:"hosts,omitempty"`      // list of hosts, can be exact match or regex in from of /regex/
 	Containers []string  `json:"containers,omitempty"` // list of containers, can be regex as well
 	Excludes   []string  `json:"excludes,omitempty"`   // list of excluded containers, can be regex
@@ -18,5 +18,5 @@ type Request struct {
 }
 
 func (r Request) String() string {
-	return fmt.Sprintf("hosts=%s, containers=%s, excludes=%s, max=%d", r.Hosts, r.Containers, r.Excludes, r.Max)
+	return fmt.Sprintf("hosts=%s, containers=%s, excludes=%s, max=%d", r.Hosts, r.Containers, r.Excludes, r.Limit)
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,9 +74,9 @@ func TestNewEntry(t *testing.T) {
 				assert.EqualError(t, err, tt.err.Error())
 				return
 			}
-			assert.NoError(t, err)
-			logEntry.ID = bson.ObjectIdHex("5927d382b2035078e61816a5")
-			tt.out.ID = bson.ObjectIdHex("5927d382b2035078e61816a5")
+			require.NoError(t, err)
+			logEntry.ID = "5927d382b2035078e61816a5"
+			tt.out.ID = "5927d382b2035078e61816a5"
 			assert.Equal(t, tt.out.Host, logEntry.Host, fmt.Sprintf("mismatch in #%d", n))
 			assert.Equal(t, tt.out.Container, logEntry.Container, fmt.Sprintf("mismatch in #%d", n))
 			assert.Equal(t, tt.out.Msg, logEntry.Msg, fmt.Sprintf("mismatch in #%d", n))
@@ -85,6 +84,5 @@ func TestNewEntry(t *testing.T) {
 			assert.Equal(t, tt.out.ID, logEntry.ID, fmt.Sprintf("mismatch in #%d", n))
 			assert.Equal(t, tt.out.Ts.Format(time.RFC3339), logEntry.Ts.Format(time.RFC3339), fmt.Sprintf("mismatch in #%d", n))
 		})
-
 	}
 }

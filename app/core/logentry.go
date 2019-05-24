@@ -6,18 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/globalsign/mgo/bson"
 	"github.com/pkg/errors"
 )
 
 // LogEntry represents a single event for forwarder, mongo (JSON) and client
 type LogEntry struct {
-	ID        bson.ObjectId `json:"id" bson:"_id,omitempty"`
-	Host      string        `json:"host" bson:"host"`
-	Container string        `json:"container" bson:"container"`
-	Pid       int           `json:"pid" bson:"pid"`
-	Msg       string        `json:"msg" bson:"msg"`
-	Ts        time.Time     `json:"ts" bson:"ts"`
+	ID        string    `json:"id"`
+	Host      string    `json:"host"`
+	Container string    `json:"container"`
+	Pid       int       `json:"pid"`
+	Msg       string    `json:"msg"`
+	Ts        time.Time `json:"ts"`
+	CreatedTs time.Time `json:"cts"`
 }
 
 // NewEntry makes entry from log line.
@@ -29,7 +29,7 @@ func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 		return entry, fmt.Errorf("line is too short, line=[%s]", line)
 	}
 
-	entry = LogEntry{Container: "syslog", Pid: 0}
+	entry = LogEntry{Container: "syslog", Pid: 0, CreatedTs: time.Now()}
 
 	entry.Ts, line, err = parseTime(line, tz)
 	if err != nil {
@@ -83,5 +83,5 @@ func parseTime(line string, tz *time.Location) (ts time.Time, trimmedLine string
 }
 
 func (entry LogEntry) String() string {
-	return fmt.Sprintf("%s : %s/%s [%d] - %s", entry.Ts, entry.Host, entry.Container, entry.Pid, entry.Msg)
+	return fmt.Sprintf("%s : %s/%s [%d] - %s", entry.Ts.In(time.Local), entry.Host, entry.Container, entry.Pid, entry.Msg)
 }

@@ -10,7 +10,7 @@ func TestRest_MakeQuery(t *testing.T) {
 	// req := Request{
 	// 	Containers: []string{"cnt1", "cnt2"},
 	// 	Hosts:      []string{"h1", "h2", "h3"},
-	// 	Max:        100,
+	// 	Limit:        100,
 	// 	Excludes:   []string{"ex1", "ex2"},
 	// 	FromTS:     "20180103:162517",
 	// 	ToTS:       "20180105:195005",

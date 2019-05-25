@@ -20,9 +20,9 @@ type Syslog struct {
 // Go starts syslog server and returns channel of received lines
 func (s *Syslog) Go(ctx context.Context) <-chan string {
 	log.Print("[INFO] activate syslog server")
-	ch := make(chan string, 10000)
-	channel := make(syslog.LogPartsChannel)
-	handler := syslog.NewChannelHandler(channel)
+	outCh := make(chan string, 10000) // messages chanel
+	inCh := make(syslog.LogPartsChannel)
+	handler := syslog.NewChannelHandler(inCh)
 	s.server = syslog.NewServer()
 	s.server.SetFormat(&origFormatter{})
 	s.server.SetHandler(handler)
@@ -36,18 +36,29 @@ func (s *Syslog) Go(ctx context.Context) <-chan string {
 		log.Fatalf("[ERROR] failed to activate syslog, %v", err)
 	}
 
-	go func(channel syslog.LogPartsChannel) {
-		for logParts := range channel {
-			ch <- fmt.Sprintf("%s", logParts["msg"])
+	go func(inCh syslog.LogPartsChannel) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case parts := <-inCh:
+				outCh <- fmt.Sprintf("%s", parts["msg"])
+			}
 		}
-	}(channel)
+	}(inCh)
 
 	go func() {
+		<-ctx.Done()
+		if err := s.server.Kill(); err != nil {
+			log.Printf("[ERROR] failed to kill syslog server, %v", err)
+		}
 		s.server.Wait()
-		log.Print("[ERROR] syslog server terminated")
+		close(inCh)
+		close(outCh)
+		log.Print("[WARN] syslog server terminated")
 	}()
 
-	return ch
+	return outCh
 }
 
 type origFormatter struct{}

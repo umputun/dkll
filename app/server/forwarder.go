@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -13,12 +14,12 @@ import (
 type Forwarder struct {
 	Publisher  Publisher
 	Syslog     SyslogBackgroundReader
-	FileLogger *FileLogger
+	FileWriter FileWriter
 }
 
 // Publisher to store
 type Publisher interface {
-	Publish(buffer []core.LogEntry) (err error)
+	Publish(records []core.LogEntry) (err error)
 	LastPublished() (entry core.LogEntry, err error)
 }
 
@@ -27,11 +28,16 @@ type SyslogBackgroundReader interface {
 	Go(ctx context.Context) <-chan string
 }
 
+// FileSubmitter writes entry to all log files
+type FileWriter interface {
+	Write(rec core.LogEntry) error
+}
+
 // Run executes forwarder in endless (blocking) loop
 func (f *Forwarder) Run(ctx context.Context) {
 	log.Print("[INFO] run forwarder from syslog")
 	messages := make(chan core.LogEntry, 10000)
-	f.backgroundPublisher(ctx, messages)
+	writerWg := f.backgroundWriter(ctx, messages)
 
 	if pe, err := f.Publisher.LastPublished(); err == nil {
 		log.Printf("[DEBUG] last published [%s : %s]", pe.ID, pe)
@@ -42,6 +48,7 @@ func (f *Forwarder) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Printf("[WARN] forwarder terminated, %v", ctx.Err())
+			writerWg.Wait() // wait for backgroundWriter completion
 			return
 		case line := <-syslogCh:
 			ent, err := core.NewEntry(line, time.Local)
@@ -52,28 +59,35 @@ func (f *Forwarder) Run(ctx context.Context) {
 			messages <- ent
 		}
 	}
+
 }
 
-func (f *Forwarder) backgroundPublisher(ctx context.Context, messages <-chan core.LogEntry) {
-	log.Print("[INFO] mongo publisher activated")
+func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.LogEntry) *sync.WaitGroup {
+	log.Print("[INFO] forwarder's writer activated")
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
 	go func() {
+		defer wg.Done()
 		buffer := make([]core.LogEntry, 0, 1001)
 
+		// send buffer to publisher and file logger
 		writeBuff := func() (wrote int) {
 			if len(buffer) == 0 {
 				return 0
 			}
 
 			if err := f.Publisher.Publish(buffer); err != nil {
-				log.Printf("[ERROR] failed to insert, error=%s", err)
-				return 0
+				log.Printf("[WARN] failed to publish, error=%s", err)
 			}
 			wrote = len(buffer)
 			for _, r := range buffer {
-				f.FileLogger.Submit(r)
+				if err := f.FileWriter.Write(r); err != nil {
+					log.Printf("[WARN] failed to write to logs, %v", err)
+				}
 			}
 			log.Printf("[DEBUG] wrote %d entries", len(buffer))
-			buffer = buffer[:0]
+			buffer = buffer[0:0]
 			return wrote
 		}
 
@@ -81,7 +95,8 @@ func (f *Forwarder) backgroundPublisher(ctx context.Context, messages <-chan cor
 		for {
 			select {
 			case <-ctx.Done():
-				log.Print("[DEBUG] background publisher terminated")
+				writeBuff()
+				log.Print("[DEBUG] background writer terminated")
 				return
 			case msg := <-messages:
 				buffer = append(buffer, msg)
@@ -94,4 +109,5 @@ func (f *Forwarder) backgroundPublisher(ctx context.Context, messages <-chan cor
 		}
 	}()
 
+	return &wg
 }

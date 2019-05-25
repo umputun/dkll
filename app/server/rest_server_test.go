@@ -1,25 +1,75 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/umputun/dkll/app/core"
 )
 
-func TestRest_MakeQuery(t *testing.T) {
-	// r := RestServer{}
-	// id := bson.NewObjectId()
-	// req := Request{
-	// 	Containers: []string{"cnt1", "cnt2"},
-	// 	Hosts:      []string{"h1", "h2", "h3"},
-	// 	Limit:        100,
-	// 	Excludes:   []string{"ex1", "ex2"},
-	// 	FromTS:     "20180103:162517",
-	// 	ToTS:       "20180105:195005",
-	// }
-	//
-	// b, err := r.makeQuery(id, req)
-	// require.NoError(t, err)
-	// assert.Equal(t, bson.M{"$in": []interface{}{"cnt1", "cnt2"}, "$nin": []interface{}{"ex1", "ex2"}}, b["container"])
-	// assert.Equal(t, bson.M{"$in": []interface{}{"h1", "h2", "h3"}}, b["host"])
-	// assert.Equal(t, bson.M{"$gte": time.Date(2018, 1, 3, 16, 25, 17, 0, timeutils.NYLocation()),
-	// 	"$lt": time.Date(2018, 1, 5, 19, 50, 5, 0, timeutils.NYLocation())}, b["ts"])
+func TestRest_findCtrl(t *testing.T) {
+	ds := &mockDataService{}
+	srv := RestServer{DataService: ds}
+	ts := httptest.NewServer(srv.router())
+	defer ts.Close()
+
+	buff := bytes.Buffer{}
+	req := core.Request{Hosts: []string{"xyz"}}
+	err := json.NewEncoder(&buff).Encode(req)
+	require.NoError(t, err)
+
+	resp, err := http.Post(ts.URL+"/v1/find", "application/json", &buff)
+	require.NoError(t, err)
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, req, ds.req)
+}
+
+func TestRest_findCtrlFailed(t *testing.T) {
+	ds := &mockDataService{}
+	srv := RestServer{DataService: ds}
+	ts := httptest.NewServer(srv.router())
+	defer ts.Close()
+
+	buff := bytes.Buffer{}
+	req := core.Request{LastID: "err"} // trigger error
+	err := json.NewEncoder(&buff).Encode(req)
+	require.NoError(t, err)
+
+	resp, err := http.Post(ts.URL+"/v1/find", "application/json", &buff)
+	require.NoError(t, err)
+	assert.Equal(t, 400, resp.StatusCode)
+}
+
+type mockDataService struct {
+	req core.Request
+}
+
+func (m *mockDataService) Find(req core.Request) ([]core.LogEntry, error) {
+	m.req = req
+	if req.LastID == "err" {
+		return nil, errors.New("the error")
+	}
+	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
+	recs := []core.LogEntry{
+		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+	}
+	return recs, nil
+}
+
+func (m *mockDataService) LastPublished() (entry core.LogEntry, err error) {
+	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
+	return core.LogEntry{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)}, nil
 }

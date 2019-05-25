@@ -86,3 +86,10 @@ func TestNewEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestLogEntry_String(t *testing.T) {
+	entry := LogEntry{Host: "server-1", Container: "mongo", Pid: 888,
+		Ts: time.Date(2019, 5, 24, 15, 29, 43, 0, time.UTC), Msg: "some message 123"}
+	r := entry.String()
+	assert.Equal(t, "2019-05-24 10:29:43 -0500 CDT : server-1/mongo [888] - some message 123", r)
+}

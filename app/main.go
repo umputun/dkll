@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path"
 	"time"
@@ -39,10 +40,11 @@ var opts struct {
 		Containers []string `short:"c" description:"show container(s) only"`
 		Hosts      []string `short:"h" description:"show host(s) only"`
 		Excludes   []string `short:"x" description:"exclude container(s)"`
-		ShowTs     bool     `short:"t" description:"show syslog timestamp"`
+		ShowTs     bool     `short:"m" description:"show syslog timestamp"`
 		ShowPid    bool     `short:"p" description:"show pid"`
 		ShowSyslog bool     `short:"s" description:"show syslog messages"`
 		Follow     bool     `short:"f" description:"follow mode"`
+		Tail       bool     `short:"t" description:"tail mode"`
 		MaxRecs    int      `short:"n" description:"show N records"`
 		Grep       []string `short:"g" description:"grep on entire record"`
 		UnGrep     []string `short:"G" description:"un-grep on entire record"`
@@ -147,22 +149,14 @@ func runServer() error {
 	forwarder := server.Forwarder{
 		Publisher:  mg,
 		Syslog:     &server.Syslog{},
-		FileLogger: server.NewFileLogger(containerLogFactory, mergeLogWriter),
+		FileWriter: server.NewFileLogger(containerLogFactory, mergeLogWriter),
 	}
-
-	go func() {
-		if err := forwarder.FileLogger.Do(context.TODO()); err != nil {
-			log.Printf("[WARN] file logger error %v", err)
-		}
-	}()
 
 	forwarder.Run(context.TODO()) // blocking on forwarder
 	return nil
 }
 
 func runClient() error {
-
-	var cli client.Cli
 
 	request := core.Request{
 		Limit:      100,
@@ -171,17 +165,23 @@ func runClient() error {
 		Excludes:   opts.Client.Excludes,
 	}
 
-	cli = client.NewRemote(opts.Client.API, 1, request, 1)
-
-	p := client.Params{
+	display := client.DisplayParams{
 		ShowPid:    opts.Client.ShowPid,
 		ShowTs:     opts.Client.ShowTs,
 		Follow:     opts.Client.Follow,
+		Tail:       opts.Client.Tail,
 		ShowSyslog: opts.Client.ShowSyslog,
 		Grep:       opts.Client.Grep,
 		UnGrep:     opts.Client.UnGrep,
 	}
-	return client.Activate(cli, p)
+
+	api := client.APIParams{
+		API:            opts.Client.API,
+		UpdateInterval: time.Second,
+		Client:         &http.Client{},
+	}
+	cli := client.NewCLI(api, display)
+	return cli.Activate(request)
 }
 
 func setupLog(dbg bool) {

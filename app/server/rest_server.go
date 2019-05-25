@@ -40,17 +40,7 @@ func (s *RestServer) Run(ctx context.Context) {
 
 	log.Print("[INFO] activate rest server on :8080")
 
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID, middleware.RealIP, rest.Recoverer(log.Default()))
-	router.Use(middleware.Throttle(100), middleware.Timeout(60*time.Second))
-	router.Use(rest.AppInfo("dkll", "umputun", s.Version))
-	router.Use(rest.Ping, rest.SizeLimit(1024))
-	router.Use(logger.New(logger.Log(log.Default()), logger.WithBody, logger.Prefix("[DEBUG]")).Handler)
-
-	router.Route("/v1", func(r chi.Router) {
-		r.Post("/find", s.findCtrl)
-	})
-
+	router := s.router()
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", s.Port),
 		Handler:           router,
@@ -61,6 +51,21 @@ func (s *RestServer) Run(ctx context.Context) {
 	err := srv.ListenAndServe()
 
 	log.Printf("[ERROR] rest server failed, %v", err)
+}
+
+func (s *RestServer) router() chi.Router {
+	router := chi.NewRouter()
+	router.Use(middleware.RequestID, middleware.RealIP, rest.Recoverer(log.Default()))
+	router.Use(middleware.Throttle(100), middleware.Timeout(60*time.Second))
+	router.Use(rest.AppInfo("dkll", "umputun", s.Version))
+	router.Use(rest.Ping, rest.SizeLimit(1024))
+	router.Use(logger.New(logger.Log(log.Default()), logger.WithBody, logger.Prefix("[DEBUG]")).Handler)
+
+	router.Route("/v1", func(r chi.Router) {
+		r.Post("/find", s.findCtrl)
+		r.Get("/last", s.lastCtrl)
+	})
+	return router
 }
 
 // findCtrl gets Request json from POST body.
@@ -88,4 +93,13 @@ func (s *RestServer) findCtrl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render.JSON(w, r, recs)
+}
+
+func (s *RestServer) lastCtrl(w http.ResponseWriter, r *http.Request) {
+	last, err := s.DataService.LastPublished()
+	if err != nil {
+		render.Status(r, http.StatusBadRequest)
+		render.JSON(w, r, rest.JSON{"error": err.Error()})
+	}
+	render.JSON(w, r, last)
 }

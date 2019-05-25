@@ -90,7 +90,16 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
 func (m *Mongo) makeQuery(req core.Request) (b bson.M, err error) {
 
-	query := bson.M{"_id": bson.M{"$gt": m.getBid(req.LastID)}, "ts": bson.M{"$gte": req.FromTS, "$lt": req.ToTS}}
+	fromTS := time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local)
+	if !req.FromTS.IsZero() {
+		fromTS = req.FromTS
+	}
+
+	toTS := time.Date(2100, 1, 1, 0, 0, 0, 0, time.Local)
+	if !req.ToTS.IsZero() {
+		toTS = req.ToTS
+	}
+	query := bson.M{"_id": bson.M{"$gt": m.getBid(req.LastID)}, "ts": bson.M{"$gte": fromTS, "$lt": toTS}}
 
 	if req.Containers != nil && len(req.Containers) > 0 {
 		query["container"] = bson.M{"$in": m.convertListWithRegex(req.Containers)}

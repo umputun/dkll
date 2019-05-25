@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -35,15 +38,24 @@ type APIParams struct {
 type DisplayParams struct {
 	ShowPid    bool
 	ShowTs     bool
-	Follow     bool
-	Tail       bool
+	FollowMode bool
+	TailMode   bool
 	ShowSyslog bool
 	Grep       []string
 	UnGrep     []string
+	TimeZone   *time.Location
+	Out        io.Writer
 }
 
 func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
-	return &CLI{DisplayParams: displayParams, APIParams: apiParams}
+	res := &CLI{DisplayParams: displayParams, APIParams: apiParams}
+	if res.TimeZone == nil {
+		res.TimeZone = time.Local
+	}
+	if res.Out == nil {
+		res.Out = os.Stdout
+	}
+	return res
 }
 
 // Activate showing tail-like, colorized output for passed Cli client
@@ -58,7 +70,7 @@ func (c *CLI) Activate(request core.Request) (err error) {
 	var ok bool
 	var id string
 
-	if c.Tail {
+	if c.TailMode {
 		id, err := c.getLastID()
 		if err == nil {
 			request.LastID = id
@@ -81,11 +93,7 @@ func (c *CLI) Activate(request core.Request) (err error) {
 
 				ts := ""
 				if c.ShowTs {
-					// lts, err := time.LoadLocation("America/New_York")
-					// if err != nil {
-					// 	log.Fatalf("[ERROR] failed to load TZ location, %v", err)
-					// }
-					ts = fmt.Sprintf(" - %s", e.Ts.In(time.Local).Format("2006-01-02 15:04:05.999999"))
+					ts = fmt.Sprintf(" - %s", e.Ts.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
 				}
 				line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))
 
@@ -93,14 +101,14 @@ func (c *CLI) Activate(request core.Request) (err error) {
 					continue
 				}
 
-				if len(c.Grep) > 0 && contains(line, c.Grep) {
+				if len(c.Grep) > 0 && !contains(line, c.Grep) {
 					continue
 				}
-				fmt.Print(line)
+				_, _ = fmt.Fprint(c.Out, line)
 			}
 			request.LastID = id
 		}
-		if !c.Follow {
+		if !c.FollowMode {
 			break
 		}
 		time.Sleep(c.UpdateInterval)
@@ -177,7 +185,7 @@ func (c *CLI) getNext(request core.Request) (items []core.LogEntry, lastID strin
 
 func contains(inp string, values []string) bool {
 	for _, v := range values {
-		if v == inp {
+		if strings.Contains(inp, v) {
 			return true
 		}
 	}

@@ -43,11 +43,14 @@ var opts struct {
 		ShowTs     bool     `short:"m" description:"show syslog timestamp"`
 		ShowPid    bool     `short:"p" description:"show pid"`
 		ShowSyslog bool     `short:"s" description:"show syslog messages"`
-		Follow     bool     `short:"f" description:"follow mode"`
-		Tail       bool     `short:"t" description:"tail mode"`
+		FollowMode bool     `short:"f" description:"follow mode"`
+		TailMode   bool     `short:"t" description:"tail mode"`
 		MaxRecs    int      `short:"n" description:"show N records"`
 		Grep       []string `short:"g" description:"grep on entire record"`
 		UnGrep     []string `short:"G" description:"un-grep on entire record"`
+
+		TailNum  bool   `long:"tail" default:"10" description:"number of initial records"`
+		TimeZone string `long:"tz"  default:"Local" description:"time zone"`
 	} `command:"client" description:"client mode"`
 
 	Dbg bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
@@ -158,6 +161,18 @@ func runServer() error {
 
 func runClient() error {
 
+	tz := func() *time.Location {
+		if opts.Client.TimeZone != "Local" {
+			ttz, err := time.LoadLocation(opts.Client.TimeZone)
+			if err != nil {
+				log.Printf("[WARN] can't use TZ %s, %v", opts.Client.TimeZone, err)
+				return time.Local
+			}
+			return ttz
+		}
+		return time.Local
+	}
+
 	request := core.Request{
 		Limit:      100,
 		Containers: opts.Client.Containers,
@@ -168,11 +183,12 @@ func runClient() error {
 	display := client.DisplayParams{
 		ShowPid:    opts.Client.ShowPid,
 		ShowTs:     opts.Client.ShowTs,
-		Follow:     opts.Client.Follow,
-		Tail:       opts.Client.Tail,
+		FollowMode: opts.Client.FollowMode,
+		TailMode:   opts.Client.TailMode,
 		ShowSyslog: opts.Client.ShowSyslog,
 		Grep:       opts.Client.Grep,
 		UnGrep:     opts.Client.UnGrep,
+		TimeZone:   tz(),
 	}
 
 	api := client.APIParams{

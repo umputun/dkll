@@ -1,10 +1,5 @@
 package server
 
-// server provides REST api v1.
-// As <id> used mongo's _id. Two entry points implemented:
-//  1. GET /v1/recs/<id> - returns messages > id
-//  2. POST /v1/recs/<id>, body = <Request> - returns messages > id and filtered by Request fields
-
 import (
 	"context"
 	"fmt"

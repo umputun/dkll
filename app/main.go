@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
+	"syscall"
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -77,15 +79,24 @@ func main() {
 	}
 	setupLog(opts.Dbg)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { // catch signal and invoke graceful termination
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+		<-stop
+		log.Printf("[WARN] interrupt signal")
+		cancel()
+	}()
+
 	if p.Active != nil && p.Command.Find("server") == p.Active {
-		if err := runServer(); err != nil {
+		if err := runServer(ctx); err != nil {
 			log.Printf("[ERROR] server failed, %v", err)
 			os.Exit(1)
 		}
 	}
 
 	if p.Active != nil && p.Command.Find("client") == p.Active {
-		if err := runClient(); err != nil {
+		if err := runClient(ctx); err != nil {
 			log.Printf("[ERROR] client failed, %v", err)
 			os.Exit(1)
 		}
@@ -93,7 +104,7 @@ func main() {
 
 }
 
-func runServer() error {
+func runServer(ctx context.Context) error {
 	fmt.Printf("dkll server %s\n", revision)
 	log.Printf("[DEBUG] server mode activated %s", revision)
 
@@ -152,19 +163,19 @@ func runServer() error {
 		Limit:       100,
 		Version:     revision,
 	}
-	go restServer.Run(context.TODO())
+	go restServer.Run(ctx)
 
 	forwarder := server.Forwarder{
 		Publisher:  mg,
-		Syslog:     &server.Syslog{},
+		Syslog:     &server.Syslog{Port: 5514},
 		FileWriter: server.NewFileLogger(containerLogFactory, mergeLogWriter),
 	}
 
-	forwarder.Run(context.TODO()) // blocking on forwarder
+	forwarder.Run(ctx) // blocking on forwarder
 	return nil
 }
 
-func runClient() error {
+func runClient(ctx context.Context) error {
 
 	tz := func() *time.Location {
 		if opts.Client.TimeZone != "Local" {
@@ -202,7 +213,7 @@ func runClient() error {
 		Client:         &http.Client{},
 	}
 	cli := client.NewCLI(api, display)
-	_, err := cli.Activate(context.TODO(), request)
+	_, err := cli.Activate(ctx, request)
 	return err
 }
 

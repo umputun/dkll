@@ -13,11 +13,11 @@ import (
 )
 
 func TestSyslog(t *testing.T) {
-	s := Syslog{}
+	s := Syslog{Port: 15514}
 	ctx, cancel := context.WithCancel(context.Background())
 	ch := s.Go(ctx)
 
-	conn, err := net.Dial("tcp", "127.0.0.1:5514")
+	conn, err := net.Dial("tcp", "127.0.0.1:15514")
 	require.NoError(t, err)
 
 	mu := sync.Mutex{}

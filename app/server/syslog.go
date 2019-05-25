@@ -14,6 +14,7 @@ import (
 
 // Syslog server on TCP & UDP 5514. Should be mapped to 514 in compose
 type Syslog struct {
+	Port   int
 	server *syslog.Server
 }
 
@@ -26,10 +27,11 @@ func (s *Syslog) Go(ctx context.Context) <-chan string {
 	s.server = syslog.NewServer()
 	s.server.SetFormat(&origFormatter{})
 	s.server.SetHandler(handler)
-	if err := s.server.ListenUDP("0.0.0.0:5514"); err != nil { // we run under regular user, can't access 514
+	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
+	if err := s.server.ListenUDP(addr); err != nil { // we run under regular user, can't access 514
 		log.Fatalf("[ERROR] can't listen to udp, %v", err)
 	}
-	if err := s.server.ListenTCP("0.0.0.0:5514"); err != nil {
+	if err := s.server.ListenTCP(addr); err != nil {
 		log.Fatalf("[ERROR] can't listen to tcp, %v", err)
 	}
 	if err := s.server.Boot(); err != nil {

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -18,5 +19,14 @@ type Request struct {
 }
 
 func (r Request) String() string {
-	return fmt.Sprintf("hosts=%s, containers=%s, excludes=%s, max=%d", r.Hosts, r.Containers, r.Excludes, r.Limit)
+	var elems []string
+	elems = append(elems, fmt.Sprintf("hosts=%s, containers=%s, excludes=%s, max=%d", r.Hosts, r.Containers, r.Excludes, r.Limit))
+	if !r.FromTS.IsZero() {
+		elems = append(elems, "from="+r.FromTS.Format(time.RFC3339))
+	}
+	if !r.ToTS.IsZero() {
+		elems = append(elems, "to="+r.ToTS.Format(time.RFC3339))
+	}
+	elems = append(elems, "last-id="+r.LastID)
+	return strings.Join(elems, ", ")
 }

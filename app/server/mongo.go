@@ -85,6 +85,7 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 	for i, r := range mresult {
 		result[i] = m.makeLogEntry(r)
 	}
+	log.Printf("[DEBUG] req: %+v, recs=%d", req, len(result))
 	return result, nil
 }
 

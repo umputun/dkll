@@ -49,7 +49,7 @@ var opts struct {
 		Grep       []string `short:"g" description:"grep on entire record"`
 		UnGrep     []string `short:"G" description:"un-grep on entire record"`
 
-		TailNum  bool   `long:"tail" default:"10" description:"number of initial records"`
+		TailNum  int    `long:"tail" default:"10" description:"number of initial records"`
 		TimeZone string `long:"tz"  default:"Local" description:"time zone"`
 	} `command:"client" description:"client mode"`
 
@@ -67,8 +67,13 @@ var revision = "unknown"
 func main() {
 
 	p := flags.NewParser(&opts, flags.Default)
-	if _, e := p.ParseArgs(os.Args[1:]); e != nil {
-		os.Exit(1)
+	if _, err := p.Parse(); err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		} else {
+			fmt.Printf("%v", err)
+			os.Exit(1)
+		}
 	}
 	setupLog(opts.Dbg)
 
@@ -197,7 +202,8 @@ func runClient() error {
 		Client:         &http.Client{},
 	}
 	cli := client.NewCLI(api, display)
-	return cli.Activate(request)
+	_, err := cli.Activate(context.TODO(), request)
+	return err
 }
 
 func setupLog(dbg bool) {

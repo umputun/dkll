@@ -24,7 +24,8 @@ import (
 
 var opts struct {
 	Server struct {
-		Port               int           `long:"port" env:"PORT" default:"8080" description:"rest server port"`
+		Port               int           `long:"api-port" env:"API_PORT" default:"8080" description:"rest server port"`
+		SyslogPort         int           `long:"syslog-port" env:"SYSLOG_PORT" default:"5514" description:"syslog server port"`
 		Mongo              []string      `long:"mongo" env:"MONGO" required:"true" env-delim:", " description:"mongo host:port"`
 		MongoPasswd        string        `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
 		MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
@@ -177,7 +178,7 @@ func runServer(ctx context.Context) error {
 
 	forwarder := server.Forwarder{
 		Publisher:  mg,
-		Syslog:     &server.Syslog{Port: 5514},
+		Syslog:     &server.Syslog{Port: opts.Server.SyslogPort},
 		FileWriter: server.NewFileLogger(containerLogFactory, mergeLogWriter),
 	}
 

@@ -26,7 +26,8 @@ func TestServer(t *testing.T) {
 	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1"}, Database: "test"}, mongo.ServerParams{})
 	require.NoError(t, err)
 	mgconn := mongo.NewConnection(mg, "test", "msgs")
-	os.Args = []string{"dkll", "server", "--dbg", "--mongo=mongo:27017", "--mongo-db=test", "--backup=/tmp/dkll-test", "--merged"}
+	os.Args = []string{"dkll", "server", "--dbg", "--mongo=mongo:27017", "--mongo-db=test",
+		"--backup=/tmp/dkll-test", "--merged", "--syslog-port=15514"}
 	defer func() {
 		os.RemoveAll("/tmp/dkll-test")
 		mgconn.WithCollection(func(coll *mgo.Collection) error {
@@ -52,7 +53,7 @@ func TestServer(t *testing.T) {
 	time.Sleep(2 * time.Second) // let server start
 
 	// send 2 records
-	conn, err := net.Dial("tcp", "127.0.0.1:5514")
+	conn, err := net.Dial("tcp", "127.0.0.1:15514")
 	require.NoError(t, err)
 	n, err := fmt.Fprintf(conn, "2017-05-30T16:13:35-04:00 BigMac.local docker/cont1[63415]: message 123\n")
 	assert.NoError(t, err)

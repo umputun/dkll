@@ -24,10 +24,10 @@ import (
 
 func TestServer(t *testing.T) {
 	log.Printf("start server test")
-	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1"}, Database: "test"}, mongo.ServerParams{})
+	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}, Database: "test"}, mongo.ServerParams{})
 	require.NoError(t, err)
 	mgconn := mongo.NewConnection(mg, "test", "msgs")
-	os.Args = []string{"dkll", "server", "--dbg", "--mongo=mongo:27017", "--mongo-db=test",
+	os.Args = []string{"dkll", "server", "--dbg", "--mongo=127.0.0.1:27017", "--mongo-db=test",
 		"--backup=/tmp/dkll-test", "--merged", "--syslog-port=15514"}
 	defer func() {
 		os.RemoveAll("/tmp/dkll-test")

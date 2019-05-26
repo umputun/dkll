@@ -6,6 +6,7 @@ import (
 	"time"
 
 	log "github.com/go-pkgz/lgr"
+	"github.com/pkg/errors"
 
 	"github.com/umputun/dkll/app/core"
 )
@@ -25,7 +26,7 @@ type Publisher interface {
 
 // SyslogBackgroundReader provides aysnc runner returning the channel for incoming messages
 type SyslogBackgroundReader interface {
-	Go(ctx context.Context) <-chan string
+	Go(ctx context.Context) (<-chan string, error)
 }
 
 // FileSubmitter writes entry to all log files
@@ -34,7 +35,7 @@ type FileWriter interface {
 }
 
 // Run executes forwarder in endless (blocking) loop
-func (f *Forwarder) Run(ctx context.Context) {
+func (f *Forwarder) Run(ctx context.Context) error {
 	log.Print("[INFO] run forwarder from syslog")
 	messages := make(chan core.LogEntry, 10000)
 	writerWg := f.backgroundWriter(ctx, messages)
@@ -43,13 +44,16 @@ func (f *Forwarder) Run(ctx context.Context) {
 		log.Printf("[DEBUG] last published [%s : %s]", pe.ID, pe)
 	}
 
-	syslogCh := f.Syslog.Go(ctx)
+	syslogCh, err := f.Syslog.Go(ctx)
+	if err != nil {
+		return errors.Wrap(err, "forwarder failed to run")
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[WARN] forwarder terminated, %v", ctx.Err())
 			writerWg.Wait() // wait for backgroundWriter completion
-			return
+			return ctx.Err()
 		case line := <-syslogCh:
 			ent, err := core.NewEntry(line, time.Local)
 			if err != nil {

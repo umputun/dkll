@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/go-pkgz/lgr"
+	"github.com/pkg/errors"
 	"gopkg.in/mcuadros/go-syslog.v2"
 	"gopkg.in/mcuadros/go-syslog.v2/format"
 )
@@ -19,7 +20,7 @@ type Syslog struct {
 }
 
 // Go starts syslog server and returns channel of received lines
-func (s *Syslog) Go(ctx context.Context) <-chan string {
+func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 	log.Print("[INFO] activate syslog server")
 	outCh := make(chan string, 10000) // messages chanel
 	inCh := make(syslog.LogPartsChannel)
@@ -28,14 +29,14 @@ func (s *Syslog) Go(ctx context.Context) <-chan string {
 	s.server.SetFormat(&origFormatter{})
 	s.server.SetHandler(handler)
 	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
-	if err := s.server.ListenUDP(addr); err != nil { // we run under regular user, can't access 514
-		log.Fatalf("[ERROR] can't listen to udp, %v", err)
+	if err := s.server.ListenUDP(addr); err != nil {
+		return nil, errors.Wrapf(err, "syslog can't listen to udp on %d", s.Port)
 	}
 	if err := s.server.ListenTCP(addr); err != nil {
-		log.Fatalf("[ERROR] can't listen to tcp, %v", err)
+		return nil, errors.Wrapf(err, "syslog can't listen to tcp on %d", s.Port)
 	}
 	if err := s.server.Boot(); err != nil {
-		log.Fatalf("[ERROR] failed to activate syslog, %v", err)
+		return nil, errors.Wrap(err, "failed to activate syslog")
 	}
 
 	go func(inCh syslog.LogPartsChannel) {
@@ -60,12 +61,12 @@ func (s *Syslog) Go(ctx context.Context) <-chan string {
 		log.Print("[WARN] syslog server terminated")
 	}()
 
-	return outCh
+	return outCh, nil
 }
 
 type origFormatter struct{}
 
-// GetParser returns parse-nothing
+// GetParser parses nothing and returns the original line
 func (f *origFormatter) GetParser(line []byte) format.LogParser {
 	return &origParser{line: line}
 }
@@ -92,6 +93,4 @@ func (p *origParser) Dump() format.LogParts {
 	return format.LogParts{"msg": s}
 }
 
-func (p *origParser) Location(*time.Location) {
-
-}
+func (p *origParser) Location(*time.Location) {}

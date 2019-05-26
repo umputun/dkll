@@ -29,15 +29,10 @@ func TestServer(t *testing.T) {
 	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}, Database: "test"}, mongo.ServerParams{})
 	require.NoError(t, err)
 	mgconn := mongo.NewConnection(mg, "test", "msgs")
+	cleanupTestAssets(t, "/tmp/dkll-test", mgconn)
 	os.Args = []string{"dkll", "server", "--dbg", "--mongo=127.0.0.1:27017", "--mongo-db=test",
 		"--backup=/tmp/dkll-test", "--merged", "--syslog-port=15514"}
-	defer func() {
-		_ = os.RemoveAll("/tmp/dkll-test")
-		e := mgconn.WithCollection(func(coll *mgo.Collection) error {
-			return coll.DropCollection()
-		})
-		require.NoError(t, e)
-	}()
+	defer cleanupTestAssets(t, "/tmp/dkll-test", mgconn)
 
 	go func() {
 		time.Sleep(10 * time.Second)
@@ -130,20 +125,23 @@ func TestClient(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	go func() {
-		log.SetOutput(ioutil.Discard)
+
+	// disable logging
+	log.SetOutput(ioutil.Discard)
+	defer log.SetOutput(os.Stdout)
+
+	go func() { // redirect stdout from main() to pipe
 		rescueStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 		main()
-		w.Close()
+		_ = w.Close()
 		out, _ := ioutil.ReadAll(r)
 		os.Stdout = rescueStdout
 		exp := "h1:c1 - 2019-05-24 21:54:30 - msg1\nh1:c2 - 2019-05-24 21:54:31 - msg2\n" +
 			"h2:c1 - 2019-05-24 21:54:32 - msg3\nh1:c1 - 2019-05-24 21:54:33 - msg4\n" +
 			"h1:c2 - 2019-05-24 21:54:34 - msg5\nh2:c2 - 2019-05-24 21:54:35 - msg6\n"
 		assert.Equal(t, exp, string(out))
-		log.SetOutput(os.Stdout)
 		wg.Done()
 	}()
 
@@ -192,4 +190,11 @@ func prepTestServer(t *testing.T) *httptest.Server {
 		w.WriteHeader(404)
 	}))
 
+}
+
+func cleanupTestAssets(t *testing.T, loc string, conn *mongo.Connection) {
+	_ = os.RemoveAll(loc)
+	_ = conn.WithCollection(func(coll *mgo.Collection) error {
+		return coll.DropCollection()
+	})
 }

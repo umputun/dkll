@@ -15,8 +15,8 @@ import (
 func TestSyslog(t *testing.T) {
 	s := Syslog{Port: 15510}
 	ctx, cancel := context.WithCancel(context.Background())
-	ch := s.Go(ctx)
-
+	ch, err := s.Go(ctx)
+	require.NoError(t, err)
 	conn, err := net.Dial("tcp", "127.0.0.1:15510")
 	require.NoError(t, err)
 
@@ -42,4 +42,11 @@ func TestSyslog(t *testing.T) {
 	mu.Unlock()
 
 	time.Sleep(time.Millisecond * 400)
+}
+
+func TestSyslog_Failed(t *testing.T) {
+	s := Syslog{Port: 95510}
+	_, err := s.Go(context.Background())
+	assert.NotNil(t, err)
+	t.Log(err)
 }

@@ -114,12 +114,12 @@ func TestLastID(t *testing.T) {
 
 	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{},
 		RepeaterStrategy: &strategy.Once{}}, DisplayParams{Out: &out})
-	id, err := c.getLastID()
+	id, err := c.getLastID(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "5ce8718aef1d7346a5443a1f", id)
 
 	// second call will fail due to test setup
-	id, err = c.getLastID()
+	id, err = c.getLastID(context.Background())
 	require.NotNil(t, err)
 }
 

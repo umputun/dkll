@@ -151,7 +151,7 @@ func runServer(ctx context.Context) error {
 		FileWriter: server.NewFileLogger(containerLogFactory, mergeLogWriter),
 	}
 
-	forwarder.Run(ctx) // blocking on forwarder
+	log.Printf("[WARN] forwarder terminated, %v", forwarder.Run(ctx)) // blocking on forwarder
 	return nil
 }
 

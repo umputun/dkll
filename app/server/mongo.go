@@ -54,6 +54,7 @@ func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 	return err
 }
 
+// LastPublished returns latest published entry
 func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 	var mentry mongoLogEntry
 	err = m.WithCollection(func(coll *mgo.Collection) error {
@@ -62,6 +63,7 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 	return m.makeLogEntry(mentry), err
 }
 
+// Find records matching given request
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
 	query := m.makeQuery(req)

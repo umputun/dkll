@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -22,7 +23,7 @@ import (
 )
 
 func TestServer(t *testing.T) {
-
+	log.Printf("start server test")
 	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1"}, Database: "test"}, mongo.ServerParams{})
 	require.NoError(t, err)
 	mgconn := mongo.NewConnection(mg, "test", "msgs")
@@ -36,7 +37,8 @@ func TestServer(t *testing.T) {
 	}()
 
 	go func() {
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
+		log.Printf("kill server")
 		e := syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 		require.Nil(t, e)
 	}()
@@ -50,8 +52,8 @@ func TestServer(t *testing.T) {
 		wg.Done()
 	}()
 
-	time.Sleep(2 * time.Second) // let server start
-
+	time.Sleep(5 * time.Second) // let server start
+	log.Printf("start server checks")
 	// send 2 records
 	conn, err := net.Dial("tcp", "127.0.0.1:15514")
 	require.NoError(t, err)
@@ -62,7 +64,7 @@ func TestServer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 63, n)
 
-	time.Sleep(1500 * time.Millisecond) // allow background writes to finish
+	time.Sleep(2 * time.Second) // allow background writes to finish
 
 	b, err := ioutil.ReadFile("/tmp/dkll-test/dkll.log")
 	assert.NoError(t, err)
@@ -107,4 +109,5 @@ func TestServer(t *testing.T) {
 	assert.Equal(t, 63416, rec.Pid)
 
 	wg.Wait()
+	log.Printf("start wait completed")
 }

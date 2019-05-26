@@ -167,6 +167,7 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("[DEBUG] mongo prepared")
 
 	restServer := server.RestServer{
 		Port:        opts.Server.Port,

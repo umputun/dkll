@@ -131,6 +131,7 @@ func TestClient(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
+		log.SetOutput(ioutil.Discard)
 		rescueStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
@@ -142,6 +143,7 @@ func TestClient(t *testing.T) {
 			"h2:c1 - 2019-05-24 21:54:32 - msg3\nh1:c1 - 2019-05-24 21:54:33 - msg4\n" +
 			"h1:c2 - 2019-05-24 21:54:34 - msg5\nh2:c2 - 2019-05-24 21:54:35 - msg6\n"
 		assert.Equal(t, exp, string(out))
+		log.SetOutput(os.Stdout)
 		wg.Done()
 	}()
 

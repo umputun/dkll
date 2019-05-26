@@ -24,6 +24,8 @@ deploy:
 
 test:
 	 cd app && go test -v -mod=vendor
+
+lint:
 	 cd app && golangci-lint run --out-format=tab --tests=false ./...
 
 .PHONY: bin

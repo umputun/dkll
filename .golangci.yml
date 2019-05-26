@@ -47,12 +47,12 @@ linters:
     - stylecheck
     - gochecknoinits
     - scopelint
-    - gocritic
-    - golint
-    - goimports
-    - nakedret
-    - gosimple
-    - prealloc
+#    - gocritic
+#    - golint
+#    - goimports
+#    - nakedret
+#    - gosimple
+#    - prealloc
 
   fast: false
 

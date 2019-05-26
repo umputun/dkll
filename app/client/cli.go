@@ -20,11 +20,13 @@ import (
 	"github.com/umputun/dkll/app/core"
 )
 
+// CLI is a client accessing remote dkll rest and printing output.
 type CLI struct {
 	DisplayParams
 	APIParams
 }
 
+// APIParams define how and where access remote endpoint
 type APIParams struct {
 	UpdateInterval   time.Duration
 	Client           *http.Client
@@ -32,17 +34,17 @@ type APIParams struct {
 	RepeaterStrategy strategy.Interface
 }
 
-// Params for Activate call
+// DisplayParams customise how records will be showed
 type DisplayParams struct {
-	ShowPid    bool
-	ShowTs     bool
-	FollowMode bool
-	TailMode   bool
-	ShowSyslog bool
-	Grep       []string
-	UnGrep     []string
-	TimeZone   *time.Location
-	Out        io.Writer
+	ShowPid    bool           // include pid
+	ShowTs     bool           // include time stamp as "2006-01-02 15:04:05.999999" in given TZ
+	FollowMode bool           // follow mode, like -f in grep
+	TailMode   bool           // tail mode, like -t in grep
+	ShowSyslog bool           // show non-docker messages from syslog, off by default
+	Grep       []string       // filter the final output line
+	UnGrep     []string       // inverse filter for the final output line
+	TimeZone   *time.Location // custom TZ, default is local
+	Out        io.Writer      // custom out stream, default is stdout
 }
 
 var (
@@ -52,6 +54,7 @@ var (
 	white  = color.New(color.FgWhite).SprintFunc()
 )
 
+// NewCLI makes cli client
 func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 	res := &CLI{DisplayParams: displayParams, APIParams: apiParams}
 	if res.TimeZone == nil {
@@ -63,14 +66,14 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 	return res
 }
 
-// Activate showing tail-like, colorized output for passed Cli client
+// Activate shows tail-like, colorized output. For FollowMode will run endless loop
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
 	var items []core.LogEntry
 	var id string
 
 	if c.TailMode {
-		id, err = c.getLastID()
+		id, err = c.getLastID(ctx)
 		if err != nil {
 			return request, errors.Wrapf(err, "can't get last ID for tail mode")
 		}
@@ -78,7 +81,7 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 	}
 
 	for {
-		items, id, err = c.getNext(request)
+		items, id, err = c.getNext(ctx, request)
 		if err != nil {
 			return request, err
 		}
@@ -90,6 +93,9 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 		for _, e := range items {
 			line, ok := c.makeOutLine(e)
 			if !ok {
+				continue
+			}
+			if (len(c.Grep) > 0 && !contains(line, c.Grep)) || (len(c.UnGrep) > 0 && contains(line, c.UnGrep)) {
 				continue
 			}
 			_, _ = fmt.Fprint(c.Out, line)
@@ -122,28 +128,24 @@ func (c *CLI) makeOutLine(e core.LogEntry) (string, bool) {
 		ts = fmt.Sprintf(" - %s", e.Ts.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
 	}
 	line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))
-
-	if len(c.UnGrep) > 0 && contains(line, c.UnGrep) {
-		return "", false
-	}
-
-	if len(c.Grep) > 0 && !contains(line, c.Grep) {
-		return "", false
-	}
 	return line, true
 }
 
-func (c *CLI) getLastID() (string, error) {
+func (c *CLI) getLastID(ctx context.Context) (string, error) {
 
-	var resp *http.Response
-	err := repeater.New(c.RepeaterStrategy).Do(context.Background(), func() (e error) {
-		resp, e = c.Client.Get(fmt.Sprintf("%s/last", c.API))
+	lastEntry := core.LogEntry{}
+	err := repeater.New(c.RepeaterStrategy).Do(ctx, func() (e error) {
+		resp, e := c.Client.Get(fmt.Sprintf("%s/last", c.API))
 		if e != nil {
 			return e
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
-			_ = resp.Body.Close()
+
 			return errors.Errorf("http code %d", resp.StatusCode)
+		}
+		if e = json.NewDecoder(resp.Body).Decode(&lastEntry); e != nil {
+			return e
 		}
 		return nil
 	})
@@ -151,15 +153,11 @@ func (c *CLI) getLastID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	lastEntry := core.LogEntry{}
-	if e := json.NewDecoder(resp.Body).Decode(&lastEntry); e != nil {
-		return "", err
-	}
+
 	return lastEntry.ID, nil
 }
 
-func (c *CLI) getNext(request core.Request) (items []core.LogEntry, lastID string, err error) {
+func (c *CLI) getNext(ctx context.Context, request core.Request) (items []core.LogEntry, lastID string, err error) {
 
 	uri := fmt.Sprintf("%s/find", c.API)
 	body := &bytes.Buffer{}
@@ -171,7 +169,7 @@ func (c *CLI) getNext(request core.Request) (items []core.LogEntry, lastID strin
 		return items, "", e
 	}
 
-	err = repeater.New(c.RepeaterStrategy).Do(context.Background(), func() error {
+	err = repeater.New(c.RepeaterStrategy).Do(ctx, func() error {
 		var resp *http.Response
 		resp, err = c.Client.Do(req)
 		if err != nil {

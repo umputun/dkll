@@ -1,0 +1,52 @@
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
+# github.com/fatih/color v1.7.0
+github.com/fatih/color
+# github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
+github.com/globalsign/mgo
+github.com/globalsign/mgo/bson
+github.com/globalsign/mgo/internal/sasl
+github.com/globalsign/mgo/internal/scram
+github.com/globalsign/mgo/internal/json
+# github.com/go-chi/chi v4.0.2+incompatible
+github.com/go-chi/chi
+github.com/go-chi/chi/middleware
+# github.com/go-chi/render v1.0.1
+github.com/go-chi/render
+# github.com/go-pkgz/lgr v0.6.2
+github.com/go-pkgz/lgr
+# github.com/go-pkgz/mongo v1.1.2
+github.com/go-pkgz/mongo
+# github.com/go-pkgz/repeater v1.1.2
+github.com/go-pkgz/repeater
+github.com/go-pkgz/repeater/strategy
+# github.com/go-pkgz/rest v1.4.1
+github.com/go-pkgz/rest
+github.com/go-pkgz/rest/logger
+# github.com/hashicorp/errwrap v1.0.0
+github.com/hashicorp/errwrap
+# github.com/hashicorp/go-multierror v1.0.0
+github.com/hashicorp/go-multierror
+# github.com/jessevdk/go-flags v1.4.0
+github.com/jessevdk/go-flags
+# github.com/mattn/go-colorable v0.1.2
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.8
+github.com/mattn/go-isatty
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# golang.org/x/sys v0.0.0-20190524152521-dbbf3f1254d4
+golang.org/x/sys/unix
+# gopkg.in/mcuadros/go-syslog.v2 v2.2.1
+gopkg.in/mcuadros/go-syslog.v2
+gopkg.in/mcuadros/go-syslog.v2/format
+gopkg.in/mcuadros/go-syslog.v2/internal/syslogparser
+gopkg.in/mcuadros/go-syslog.v2/internal/syslogparser/rfc3164
+gopkg.in/mcuadros/go-syslog.v2/internal/syslogparser/rfc5424
+# gopkg.in/natefinch/lumberjack.v2 v2.0.0
+gopkg.in/natefinch/lumberjack.v2

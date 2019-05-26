@@ -50,7 +50,6 @@ linters:
     - scopelint
     - gocritic
     - golint
-    - goimports
     - nakedret
     - gosimple
     - prealloc

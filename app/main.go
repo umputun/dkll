@@ -152,6 +152,7 @@ func runServer(ctx context.Context) error {
 	}
 
 	log.Printf("[WARN] forwarder terminated, %v", forwarder.Run(ctx)) // blocking on forwarder
+
 	return nil
 }
 

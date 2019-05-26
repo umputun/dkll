@@ -29,11 +29,11 @@ func TestServer(t *testing.T) {
 	log.Printf("start server test")
 	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}, Database: "test"}, mongo.ServerParams{})
 	require.NoError(t, err)
-	mgconn := mongo.NewConnection(mg, "test", "msgs")
-	cleanupTestAssets(t, "/tmp/dkll-test", mgconn)
+	mgConn := mongo.NewConnection(mg, "test", "msgs")
+	cleanupTestAssets(t, "/tmp/dkll-test", mgConn)
 	os.Args = []string{"dkll", "server", "--dbg", "--mongo=127.0.0.1:27017", "--mongo-db=test",
 		"--backup=/tmp/dkll-test", "--merged", "--syslog-port=15514"}
-	defer cleanupTestAssets(t, "/tmp/dkll-test", mgconn)
+	defer cleanupTestAssets(t, "/tmp/dkll-test", mgConn)
 
 	go func() {
 		time.Sleep(10 * time.Second)

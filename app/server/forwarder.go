@@ -53,6 +53,7 @@ func (f *Forwarder) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			writerWg.Wait() // wait for backgroundWriter completion
+			<-syslogCh      // wait for syslog close
 			return ctx.Err()
 		case line := <-syslogCh:
 			ent, err := core.NewEntry(line, time.Local)

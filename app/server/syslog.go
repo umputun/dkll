@@ -26,6 +26,7 @@ func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 	inCh := make(syslog.LogPartsChannel)
 	handler := syslog.NewChannelHandler(inCh)
 	s.server = syslog.NewServer()
+	s.server.SetTimeout(1000)
 	s.server.SetFormat(&origFormatter{})
 	s.server.SetHandler(handler)
 	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
@@ -52,13 +53,14 @@ func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 
 	go func() {
 		<-ctx.Done()
+		log.Print("[DEBUG] syslog termination requested")
 		if err := s.server.Kill(); err != nil {
-			log.Printf("[ERROR] failed to kill syslog server, %v", err)
+			log.Printf("[WARN] failed to kill syslog server, %v", err)
 		}
 		s.server.Wait()
 		close(inCh)
 		close(outCh)
-		log.Print("[WARN] syslog server terminated")
+		log.Print("[INFO] syslog server terminated")
 	}()
 
 	return outCh, nil

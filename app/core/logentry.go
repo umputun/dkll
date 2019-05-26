@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LogEntry represents a single event for forwarder, mongo (JSON) and client
+// LogEntry represents a single event for forwarder and rest server and client
 type LogEntry struct {
 	ID        string    `json:"id"`
 	Host      string    `json:"host"`
@@ -20,9 +20,8 @@ type LogEntry struct {
 	CreatedTs time.Time `json:"cts"`
 }
 
-// NewEntry makes entry from log line.
-// example:
-//	Oct 19 15:29:43 host-1 docker/mongo[888]: 2015-10-19T19:29:43 blah blah blah
+// NewEntry makes the LogEntry from a log line.
+// example:	"Oct 19 15:29:43 host-1 docker/mongo[888]: 2015-10-19T19:29:43 blah blah blah"
 func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 
 	if len(line) < 16 { // 16 is minimal size of "Jan _2 15:04:05" timestamp
@@ -48,9 +47,9 @@ func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 		pidElems := strings.Split(containerAndPid, "[")
 		entry.Container = pidElems[0]
 		if len(pidElems) > 1 {
-			pidsStr := strings.TrimSuffix(pidElems[1], ":")
-			pidsStr = strings.TrimSuffix(pidsStr, "]")
-			if pid, err := strconv.Atoi(pidsStr); err == nil {
+			pidStr := strings.TrimSuffix(pidElems[1], ":")
+			pidStr = strings.TrimSuffix(pidStr, "]")
+			if pid, err := strconv.Atoi(pidStr); err == nil {
 				entry.Pid = pid
 			}
 		}

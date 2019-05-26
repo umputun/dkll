@@ -34,7 +34,7 @@ type APIParams struct {
 	RepeaterStrategy strategy.Interface
 }
 
-// DisplayParams customise how records will be showed
+// DisplayParams customizes how records will be showed
 type DisplayParams struct {
 	ShowPid    bool           // include pid
 	ShowTs     bool           // include time stamp as "2006-01-02 15:04:05.999999" in given TZ

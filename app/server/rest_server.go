@@ -16,11 +16,11 @@ import (
 	"github.com/umputun/dkll/app/core"
 )
 
-// RestServer basic rest server to access msgs from mongo
+// RestServer is a basic rest server to access msgs from DataService
 type RestServer struct {
 	Port        int
 	DataService DataService
-	Limit       int
+	Limit       int // request limit, i.e. max number of records any single Find can return
 	Version     string
 }
 
@@ -67,8 +67,8 @@ func (s *RestServer) router() chi.Router {
 	return router
 }
 
-// findCtrl gets Request json from POST body.
-// containers,hosts and excludes lists supports regexp in mongo format, i.e. /regex/
+// POST /v1/find, body is Request.  Returns list of LogEntry
+// containers,hosts and excludes lists support regexp in "//", i.e. /regex/
 func (s *RestServer) findCtrl(w http.ResponseWriter, r *http.Request) {
 
 	req := core.Request{}
@@ -94,6 +94,8 @@ func (s *RestServer) findCtrl(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, recs)
 }
 
+// GET /v1/last
+// Returns latest published LogEntry from DataService
 func (s *RestServer) lastCtrl(w http.ResponseWriter, r *http.Request) {
 	last, err := s.DataService.LastPublished()
 	if err != nil {

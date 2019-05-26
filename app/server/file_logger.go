@@ -17,13 +17,15 @@ type FileLogger struct {
 	lock           sync.Mutex
 }
 
-type WritersFactory func(instance, container string) io.Writer
+// WritersFactory is a type for func returning io.Writer for given host and container
+type WritersFactory func(host, container string) io.Writer
 
 type dkKey struct {
 	host      string
 	container string
 }
 
+// NewFileLogger creates FileLogger for provided WritersFactory (per host/container) and merged writer
 func NewFileLogger(wrf WritersFactory, m io.Writer) *FileLogger {
 	return &FileLogger{
 		merged:         m,

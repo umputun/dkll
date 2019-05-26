@@ -23,6 +23,10 @@ var opts struct {
 
 var revision = "unknown"
 
+type commander interface {
+	Run(ctx context.Context) error
+}
+
 func main() {
 
 	p := flags.NewParser(&opts, flags.Default)
@@ -45,29 +49,22 @@ func main() {
 		cancel()
 	}()
 
-	if p.Active != nil && p.Command.Find("server") == p.Active {
-		srv := cmd.ServerCmd{ServerOpts: opts.Server, Revision: revision}
-		if err := srv.Run(ctx); err != nil {
-			log.Printf("[ERROR] server failed, %v", err)
-			os.Exit(1)
-		}
+	var dispatch = map[string]commander{
+		"server": cmd.ServerCmd{ServerOpts: opts.Server, Revision: revision},
+		"client": cmd.ClientCmd{ClientOpts: opts.Client},
+		"agent":  cmd.AgentCmd{AgentOpts: opts.Agent, Revision: revision},
 	}
 
-	if p.Active != nil && p.Command.Find("client") == p.Active {
-		client := cmd.ClientCmd{ClientOpts: opts.Client}
-		if err := client.Run(ctx); err != nil {
-			log.Printf("[ERROR] client failed, %v", err)
-			os.Exit(1)
+	for name, command := range dispatch {
+		if p.Active != nil && p.Command.Find(name) == p.Active {
+			if err := command.Run(ctx); err != nil {
+				log.Printf("[ERROR] %s failed, %v", name, err)
+				os.Exit(1)
+			}
+			os.Exit(0)
 		}
 	}
-
-	if p.Active != nil && p.Command.Find("agent") == p.Active {
-		agent := cmd.AgentCmd{AgentOpts: opts.Agent, Revision: revision}
-		if err := agent.Run(ctx); err != nil {
-			log.Printf("[ERROR] agent failed, %v", err)
-			os.Exit(1)
-		}
-	}
+	log.Printf("[ERROR] unknown command")
 }
 
 func setupLog(dbg bool) {

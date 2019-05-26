@@ -176,7 +176,11 @@ func runServer(ctx context.Context) error {
 		Limit:       100,
 		Version:     revision,
 	}
-	go restServer.Run(ctx)
+	go func() {
+		if httpErr := restServer.Run(ctx); httpErr != nil {
+			log.Printf("[WARN] rest server terminated, %v", httpErr)
+		}
+	}()
 
 	forwarder := server.Forwarder{
 		Publisher:  mg,

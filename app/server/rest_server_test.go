@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,15 @@ import (
 
 	"github.com/umputun/dkll/app/core"
 )
+
+func TestRest_Run(t *testing.T) {
+	ds := &mockDataService{}
+	srv := RestServer{DataService: ds, Port: 10080}
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Millisecond*100, cancel)
+	err := srv.Run(ctx)
+	assert.EqualError(t, err, "http: Server closed")
+}
 
 func TestRest_findCtrl(t *testing.T) {
 	ds := &mockDataService{}
@@ -46,6 +56,25 @@ func TestRest_findCtrlFailed(t *testing.T) {
 	resp, err := http.Post(ts.URL+"/v1/find", "application/json", &buff)
 	require.NoError(t, err)
 	assert.Equal(t, 400, resp.StatusCode)
+
+	resp, err = http.Post(ts.URL+"/v1/find", "application/json", nil)
+	require.NoError(t, err)
+	assert.Equal(t, 400, resp.StatusCode)
+}
+
+func TestRest_lastCtrl(t *testing.T) {
+	ds := &mockDataService{}
+	srv := RestServer{DataService: ds}
+	ts := httptest.NewServer(srv.router())
+	defer ts.Close()
+
+	rec := core.LogEntry{}
+	resp, err := http.Get(ts.URL + "/v1/last")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, 200, resp.StatusCode)
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&rec))
+	assert.Equal(t, "5ce8718aef1d7346a5443a6f", rec.ID)
 }
 
 type mockDataService struct {

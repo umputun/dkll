@@ -22,6 +22,8 @@ type RestServer struct {
 	DataService DataService
 	Limit       int
 	Version     string
+
+	killCh chan bool
 }
 
 // DataService is accessor to store
@@ -31,9 +33,8 @@ type DataService interface {
 }
 
 // Run the lister and request's router
-func (s *RestServer) Run(ctx context.Context) {
-
-	log.Print("[INFO] activate rest server on :8080")
+func (s *RestServer) Run(ctx context.Context) error {
+	log.Printf("[INFO] activate rest server on :%d", s.Port)
 
 	router := s.router()
 	srv := &http.Server{
@@ -43,9 +44,14 @@ func (s *RestServer) Run(ctx context.Context) {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
-	err := srv.ListenAndServe()
+	go func() {
+		<-ctx.Done()
+		if e := srv.Close(); e != nil {
+			log.Printf("[WARN] failed to close http server, %v", e)
+		}
+	}()
 
-	log.Printf("[ERROR] rest server failed, %v", err)
+	return srv.ListenAndServe()
 }
 
 func (s *RestServer) router() chi.Router {

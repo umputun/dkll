@@ -30,6 +30,7 @@ linters:
   disable-all: true
   enable:
     - megacheck
+    - golint
     - govet
     - unconvert
     - megacheck
@@ -61,7 +62,7 @@ run:
   modules-download-mode: vendor
   skip-dirs:
     - vendor
-  concurrency: 4
+#  concurrency: 4
 
 issues:
   exclude-rules:

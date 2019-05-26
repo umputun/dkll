@@ -49,7 +49,7 @@ func TestServer(t *testing.T) {
 		wg.Done()
 	}()
 
-	time.Sleep(time.Second) // let server start
+	time.Sleep(2 * time.Second) // let server start
 
 	// send 2 records
 	conn, err := net.Dial("tcp", "127.0.0.1:5514")

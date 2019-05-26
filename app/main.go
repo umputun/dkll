@@ -112,46 +112,9 @@ func runServer(ctx context.Context) error {
 	log.Printf("[DEBUG] server mode activated %s", revision)
 
 	// default loggers empty
-	mergeLogWriter := ioutil.Discard
-	containerLogFactory := func(instance, container string) io.Writer { return ioutil.Discard }
-
-	if opts.Server.FileBackupLocation != "" {
-		log.Printf("[INFO] backup files location %s", opts.Server.FileBackupLocation)
-		var err error
-
-		if opts.Server.EnableMerged {
-			if err = os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
-				return err
-			}
-			mergeLogWriter = &lumberjack.Logger{
-				Filename:   path.Join(opts.Server.FileBackupLocation, "/dkll.log"),
-				MaxSize:    opts.Server.LogLimits.Merged.MaxSize,
-				MaxBackups: opts.Server.LogLimits.Merged.MaxBackups,
-				MaxAge:     opts.Server.LogLimits.Merged.MaxAge,
-				Compress:   true,
-			}
-			log.Printf("[DEBUG] make merged rotated, %+v", mergeLogWriter)
-		}
-
-		containerLogFactory = func(instance, container string) io.Writer {
-			fname := path.Join(opts.Server.FileBackupLocation, instance, container+".log")
-			if err = os.MkdirAll(path.Dir(fname), 0755); err != nil {
-				log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
-				return ioutil.Discard
-			}
-			singleWriter := &lumberjack.Logger{
-				Filename:   fname,
-				MaxSize:    opts.Server.LogLimits.Container.MaxSize,
-				MaxBackups: opts.Server.LogLimits.Container.MaxBackups,
-				MaxAge:     opts.Server.LogLimits.Container.MaxAge,
-				Compress:   true,
-			}
-			if err != nil {
-				log.Fatalf("[ERROR] failed to open %s, %v", fname, err)
-			}
-			log.Printf("[DEBUG] make container rotated log for %s/%s, %+v", instance, container, singleWriter)
-			return singleWriter
-		}
+	containerLogFactory, mergeLogWriter, err := makeWriters()
+	if err != nil {
+		return err
 	}
 
 	dial := mgo.DialInfo{
@@ -190,6 +153,53 @@ func runServer(ctx context.Context) error {
 
 	forwarder.Run(ctx) // blocking on forwarder
 	return nil
+}
+
+func makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err error) {
+
+	// default loggers empty
+	wrf = func(instance, container string) io.Writer { return ioutil.Discard }
+	mergeLogWriter = ioutil.Discard
+	if opts.Server.FileBackupLocation == "" {
+		return wrf, mergeLogWriter, nil
+	}
+
+	log.Printf("[INFO] backup files location %s", opts.Server.FileBackupLocation)
+
+	if opts.Server.EnableMerged {
+		if err = os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
+			return wrf, mergeLogWriter, err
+		}
+		mergeLogWriter = &lumberjack.Logger{
+			Filename:   path.Join(opts.Server.FileBackupLocation, "/dkll.log"),
+			MaxSize:    opts.Server.LogLimits.Merged.MaxSize,
+			MaxBackups: opts.Server.LogLimits.Merged.MaxBackups,
+			MaxAge:     opts.Server.LogLimits.Merged.MaxAge,
+			Compress:   true,
+		}
+		log.Printf("[DEBUG] make merged rotated, %+v", mergeLogWriter)
+	}
+
+	wrf = func(instance, container string) io.Writer {
+		fname := path.Join(opts.Server.FileBackupLocation, instance, container+".log")
+		if err = os.MkdirAll(path.Dir(fname), 0755); err != nil {
+			log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
+			return ioutil.Discard
+		}
+		singleWriter := &lumberjack.Logger{
+			Filename:   fname,
+			MaxSize:    opts.Server.LogLimits.Container.MaxSize,
+			MaxBackups: opts.Server.LogLimits.Container.MaxBackups,
+			MaxAge:     opts.Server.LogLimits.Container.MaxAge,
+			Compress:   true,
+		}
+		if err != nil {
+			log.Fatalf("[ERROR] failed to open %s, %v", fname, err)
+		}
+		log.Printf("[DEBUG] make container rotated log for %s/%s, %+v", instance, container, singleWriter)
+		return singleWriter
+	}
+	return wrf, mergeLogWriter, nil
 }
 
 func runClient(ctx context.Context) error {

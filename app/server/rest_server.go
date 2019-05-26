@@ -22,8 +22,6 @@ type RestServer struct {
 	DataService DataService
 	Limit       int
 	Version     string
-
-	killCh chan bool
 }
 
 // DataService is accessor to store

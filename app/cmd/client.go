@@ -10,6 +10,7 @@ import (
 	"github.com/umputun/dkll/app/core"
 )
 
+// ClientOpts holds all flags and env for client mode
 type ClientOpts struct {
 	API        string   `short:"a" long:"api" env:"DKLL_API" required:"true" description:"API endpoint (client)"`
 	Containers []string `short:"c" description:"show container(s) only"`
@@ -28,11 +29,12 @@ type ClientOpts struct {
 	TimeZone string `long:"tz"  default:"Local" description:"time zone"`
 }
 
-// ClientCmd wraps c;ient mode
+// ClientCmd wraps client mode
 type ClientCmd struct {
 	ClientOpts
 }
 
+// Run client
 func (c ClientCmd) Run(ctx context.Context) error {
 	tz := func() *time.Location {
 		if c.TimeZone != "Local" {

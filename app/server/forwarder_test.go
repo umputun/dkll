@@ -61,6 +61,7 @@ func (m *mockSyslogBackgroundReader) Go(ctx context.Context) (<-chan string, err
 		ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/test123[63415]: some msg %d", i)
 	}
 	ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/err[63415]: some bad msg")
+	close(ch)
 	return ch, nil
 }
 

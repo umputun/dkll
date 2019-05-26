@@ -55,7 +55,10 @@ func (f *Forwarder) Run(ctx context.Context) error {
 			writerWg.Wait() // wait for backgroundWriter completion
 			<-syslogCh      // wait for syslog close
 			return ctx.Err()
-		case line := <-syslogCh:
+		case line, ok := <-syslogCh:
+			if !ok {
+				continue
+			}
 			ent, err := core.NewEntry(line, time.Local)
 			if err != nil {
 				log.Printf("[WARN] failed to make entry from %q, %v", line, err)

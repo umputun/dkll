@@ -45,15 +45,15 @@ linters:
     - typecheck
     - ineffassign
     - varcheck
-#    - stylecheck
-#    - gochecknoinits
-#    - scopelint
-#    - gocritic
-#    - golint
-#    - goimports
-#    - nakedret
-#    - gosimple
-#    - prealloc
+    - stylecheck
+    - gochecknoinits
+    - scopelint
+    - gocritic
+    - golint
+    - goimports
+    - nakedret
+    - gosimple
+    - prealloc
 
   fast: false
 
@@ -62,7 +62,7 @@ run:
   modules-download-mode: vendor
   skip-dirs:
     - vendor
-#  concurrency: 4
+  concurrency: 4
 
 issues:
   exclude-rules:

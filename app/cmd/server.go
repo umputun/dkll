@@ -16,6 +16,7 @@ import (
 	"github.com/umputun/dkll/app/server"
 )
 
+// ServerOpts holds all flags and env for server mode
 type ServerOpts struct {
 	Port               int           `long:"api-port" env:"API_PORT" default:"8080" description:"rest server port"`
 	SyslogPort         int           `long:"syslog-port" env:"SYSLOG_PORT" default:"5514" description:"syslog server port"`

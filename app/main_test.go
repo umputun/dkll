@@ -119,7 +119,7 @@ func TestClient(t *testing.T) {
 	ts := prepTestServer(t)
 	defer ts.Close()
 
-	os.Args = []string{"dkll", "client", "--dbg", "--api=" + ts.URL + "/v1"}
+	os.Args = []string{"dkll", "client", "--dbg", "--api=" + ts.URL + "/v1", "--tz=America/New_York", "-m"}
 
 	go func() {
 		time.Sleep(5 * time.Second)
@@ -138,7 +138,10 @@ func TestClient(t *testing.T) {
 		w.Close()
 		out, _ := ioutil.ReadAll(r)
 		os.Stdout = rescueStdout
-		assert.Equal(t, "h1:c1 - msg1\nh1:c2 - msg2\nh2:c1 - msg3\nh1:c1 - msg4\nh1:c2 - msg5\nh2:c2 - msg6\n", string(out))
+		exp := "h1:c1 - 2019-05-24 21:54:30 - msg1\nh1:c2 - 2019-05-24 21:54:31 - msg2\n" +
+			"h2:c1 - 2019-05-24 21:54:32 - msg3\nh1:c1 - 2019-05-24 21:54:33 - msg4\n" +
+			"h1:c2 - 2019-05-24 21:54:34 - msg5\nh2:c2 - 2019-05-24 21:54:35 - msg6\n"
+		assert.Equal(t, exp, string(out))
 		wg.Done()
 	}()
 

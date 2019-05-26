@@ -16,7 +16,7 @@ before_install:
   - export PATH=$(pwd)/bin:$PATH
 
 before_script:
-  - sleep 10
+  - sleep 3
 
 script:
   - go test -v -mod=vendor -covermode=count -coverprofile=profile.cov ./... || travis_terminate 1;

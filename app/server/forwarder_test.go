@@ -55,13 +55,13 @@ func TestForwarderFastClose(t *testing.T) {
 
 type mockSyslogBackgroundReader struct{}
 
-func (m *mockSyslogBackgroundReader) Go(ctx context.Context) <-chan string {
+func (m *mockSyslogBackgroundReader) Go(ctx context.Context) (<-chan string, error) {
 	ch := make(chan string, 101)
 	for i := 0; i < 100; i++ {
 		ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/test123[63415]: some msg %d", i)
 	}
 	ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/err[63415]: some bad msg")
-	return ch
+	return ch, nil
 }
 
 type mockFileWriter struct {

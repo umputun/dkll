@@ -32,7 +32,14 @@ type mongoLogEntry struct {
 func NewMongo(dial mgo.DialInfo, delay time.Duration, dbName string) (res *Mongo, err error) {
 	log.Printf("[INFO] make new mongo server with dial=%+v, db=%s, delay=%v", dial, dbName, delay)
 	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(delay.Seconds()), ConsistencyMode: mgo.Monotonic})
-	return &Mongo{Connection: mongo.NewConnection(mg, dbName, "msgs")}, err
+	if err != nil {
+		return nil, err
+	}
+	res = &Mongo{Connection: mongo.NewConnection(mg, dbName, "msgs")}
+	if err = res.init("msgs"); err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // Publish inserts buffer to mongo
@@ -57,13 +64,10 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
-	query, err := m.makeQuery(req)
-	if err != nil {
-		return nil, err
-	}
+	query := m.makeQuery(req)
 
 	var mresult []mongoLogEntry
-	err = m.WithCollection(func(coll *mgo.Collection) error {
+	err := m.WithCollection(func(coll *mgo.Collection) error {
 		return coll.Find(query).Sort("+_id").All(&mresult)
 	})
 	if err != nil {
@@ -78,7 +82,7 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 	return result, nil
 }
 
-func (m *Mongo) makeQuery(req core.Request) (b bson.M, err error) {
+func (m *Mongo) makeQuery(req core.Request) (b bson.M) {
 
 	fromTS := time.Date(2000, 1, 1, 0, 0, 0, 0, time.Local)
 	if !req.FromTS.IsZero() {
@@ -107,7 +111,7 @@ func (m *Mongo) makeQuery(req core.Request) (b bson.M, err error) {
 		}
 	}
 
-	return query, nil
+	return query
 }
 
 func (m *Mongo) convertListWithRegex(elems []string) []interface{} {

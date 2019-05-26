@@ -49,11 +49,11 @@ var opts struct {
 		ShowSyslog bool     `short:"s" description:"show syslog messages"`
 		FollowMode bool     `short:"f" description:"follow mode"`
 		TailMode   bool     `short:"t" description:"tail mode"`
-		MaxRecs    int      `short:"n" description:"show N records"`
-		Grep       []string `short:"g" description:"grep on entire record"`
-		UnGrep     []string `short:"G" description:"un-grep on entire record"`
+		// MaxRecs    int      `short:"n" description:"show N records"`
+		Grep   []string `short:"g" description:"grep on entire record"`
+		UnGrep []string `short:"G" description:"un-grep on entire record"`
 
-		TailNum  int    `long:"tail" default:"10" description:"number of initial records"`
+		// TailNum  int    `long:"tail" default:"10" description:"number of initial records"`
 		TimeZone string `long:"tz"  default:"Local" description:"time zone"`
 	} `command:"client" description:"client mode"`
 
@@ -119,7 +119,7 @@ func runServer(ctx context.Context) error {
 		var err error
 
 		if opts.Server.EnableMerged {
-			if err := os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
+			if err = os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
 				return err
 			}
 			mergeLogWriter = &lumberjack.Logger{
@@ -134,7 +134,7 @@ func runServer(ctx context.Context) error {
 
 		containerLogFactory = func(instance, container string) io.Writer {
 			fname := path.Join(opts.Server.FileBackupLocation, instance, container+".log")
-			if err := os.MkdirAll(path.Dir(fname), 0755); err != nil {
+			if err = os.MkdirAll(path.Dir(fname), 0755); err != nil {
 				log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
 				return ioutil.Discard
 			}

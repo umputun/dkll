@@ -23,8 +23,6 @@ import (
 type CLI struct {
 	DisplayParams
 	APIParams
-
-	lastID string
 }
 
 type APIParams struct {
@@ -47,6 +45,13 @@ type DisplayParams struct {
 	Out        io.Writer
 }
 
+var (
+	green  = color.New(color.FgGreen).SprintFunc()
+	red    = color.New(color.FgRed).SprintFunc()
+	yellow = color.New(color.FgYellow).SprintFunc()
+	white  = color.New(color.FgWhite).SprintFunc()
+)
+
 func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 	res := &CLI{DisplayParams: displayParams, APIParams: apiParams}
 	if res.TimeZone == nil {
@@ -61,16 +66,11 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 // Activate showing tail-like, colorized output for passed Cli client
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
-	green := color.New(color.FgGreen).SprintFunc()
-	red := color.New(color.FgRed).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-	white := color.New(color.FgWhite).SprintFunc()
-
 	var items []core.LogEntry
 	var id string
 
 	if c.TailMode {
-		id, err := c.getLastID()
+		id, err = c.getLastID()
 		if err != nil {
 			return request, errors.Wrapf(err, "can't get last ID for tail mode")
 		}
@@ -88,26 +88,8 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 		}
 
 		for _, e := range items {
-			if !c.ShowSyslog && e.Container == "syslog" {
-				continue
-			}
-
-			pid := ""
-			if c.ShowPid {
-				pid = fmt.Sprintf(" [%d]", e.Pid)
-			}
-
-			ts := ""
-			if c.ShowTs {
-				ts = fmt.Sprintf(" - %s", e.Ts.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
-			}
-			line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))
-
-			if len(c.UnGrep) > 0 && contains(line, c.UnGrep) {
-				continue
-			}
-
-			if len(c.Grep) > 0 && !contains(line, c.Grep) {
+			line, ok := c.makeOutLine(e)
+			if !ok {
 				continue
 			}
 			_, _ = fmt.Fprint(c.Out, line)
@@ -123,6 +105,32 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 	}
 
 	return request, nil
+}
+
+func (c *CLI) makeOutLine(e core.LogEntry) (string, bool) {
+	if !c.ShowSyslog && e.Container == "syslog" {
+		return "", false
+	}
+
+	pid := ""
+	if c.ShowPid {
+		pid = fmt.Sprintf(" [%d]", e.Pid)
+	}
+
+	ts := ""
+	if c.ShowTs {
+		ts = fmt.Sprintf(" - %s", e.Ts.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
+	}
+	line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))
+
+	if len(c.UnGrep) > 0 && contains(line, c.UnGrep) {
+		return "", false
+	}
+
+	if len(c.Grep) > 0 && !contains(line, c.Grep) {
+		return "", false
+	}
+	return line, true
 }
 
 func (c *CLI) getLastID() (string, error) {

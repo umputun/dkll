@@ -91,7 +91,7 @@ func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.L
 			return wrote
 		}
 
-		ticks := time.Tick(time.Millisecond * 500)
+		ticks := time.NewTicker(time.Millisecond * 500)
 		for {
 			select {
 			case <-ctx.Done():
@@ -103,7 +103,7 @@ func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.L
 				if len(buffer) >= 1000 { // forced flush every 1000
 					writeBuff()
 				}
-			case <-ticks: // flush every 1/2 second
+			case <-ticks.C: // flush every 1/2 second
 				writeBuff()
 			}
 		}

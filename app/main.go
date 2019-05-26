@@ -31,6 +31,7 @@ var opts struct {
 		MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
 		MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
 		MongoDB            string        `long:"mongo-db" env:"MONGO_DB" default:"dkll" description:"mongo database name"`
+		MongoColl          string        `long:"mongo-coll" env:"MONGO_COLL" default:"msgs" description:"mongo collection name"`
 		FileBackupLocation string        `long:"backup" default:"" env:"BACK_LOG" description:"backup log files location"`
 		EnableMerged       bool          `long:"merged"  env:"BACK_MRG" description:"enable merged log file"`
 		LogLimits          struct {
@@ -163,7 +164,7 @@ func runServer(ctx context.Context) error {
 		dial.Username = "admin"
 		dial.Password = opts.Server.MongoPasswd
 	}
-	mg, err := server.NewMongo(dial, opts.Server.MongoDelay, opts.Server.MongoDB)
+	mg, err := server.NewMongo(dial, opts.Server.MongoDelay, opts.Server.MongoDB, opts.Server.MongoColl)
 	if err != nil {
 		return err
 	}

@@ -8,8 +8,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -111,4 +113,78 @@ func TestServer(t *testing.T) {
 
 	wg.Wait()
 	log.Printf("start wait completed")
+}
+
+func TestClient(t *testing.T) {
+	ts := prepTestServer(t)
+	defer ts.Close()
+
+	os.Args = []string{"dkll", "client", "--dbg", "--api=" + ts.URL + "/v1"}
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		log.Printf("kill client")
+		e := syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
+		require.Nil(t, e)
+	}()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		rescueStdout := os.Stdout
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+		main()
+		w.Close()
+		out, _ := ioutil.ReadAll(r)
+		os.Stdout = rescueStdout
+		assert.Equal(t, "h1:c1 - msg1\nh1:c2 - msg2\nh2:c1 - msg3\nh1:c1 - msg4\nh1:c2 - msg5\nh2:c2 - msg6\n", string(out))
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func prepTestServer(t *testing.T) *httptest.Server {
+	var count int64
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/find" && r.Method == "POST" {
+
+			body, err := ioutil.ReadAll(r.Body)
+			assert.NoError(t, err)
+			t.Logf("request: %s", string(body))
+
+			if atomic.AddInt64(&count, 1) > 1 {
+				var recs []core.LogEntry
+				err := json.NewEncoder(w).Encode(recs)
+				require.NoError(t, err)
+				return
+			}
+
+			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
+			recs := []core.LogEntry{
+				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+			}
+			err = json.NewEncoder(w).Encode(recs)
+			require.NoError(t, err)
+			return
+		}
+
+		if r.URL.Path == "/v1/last" && r.Method == "GET" {
+			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
+			rec := core.LogEntry{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1",
+				Msg: "msg1", Ts: ts.Add(5 * time.Second)}
+			err := json.NewEncoder(w).Encode(&rec)
+			require.NoError(t, err)
+		}
+
+		w.WriteHeader(404)
+	}))
+
 }

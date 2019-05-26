@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
+	"github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/mongo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,9 +128,8 @@ func TestClient(t *testing.T) {
 	wg.Add(1)
 
 	// disable logging
-	log.SetOutput(ioutil.Discard)
-	defer log.SetOutput(os.Stdout)
-
+	lgr.Out(ioutil.Discard)
+	defer lgr.Out(os.Stdout)
 	go func() { // redirect stdout from main() to pipe
 		rescueStdout := os.Stdout
 		r, w, _ := os.Pipe()

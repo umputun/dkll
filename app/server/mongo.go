@@ -29,19 +29,8 @@ type mongoLogEntry struct {
 }
 
 // NewMongo makes Mongo accessor
-func NewMongo(address []string, password string, dbName string, timeout, delay time.Duration) (res *Mongo, err error) {
-	log.Printf("[INFO] make new mongo server with ip=%v, db=%s, timeout=%v, delay=%v", address, dbName, timeout, delay)
-	dial := mgo.DialInfo{
-		Addrs:    address,
-		AppName:  "dkll",
-		Database: dbName,
-		Timeout:  timeout,
-	}
-	if password != "" {
-		dial.Username = "root"
-		dial.Password = password
-	}
-
+func NewMongo(dial mgo.DialInfo, delay time.Duration, dbName string) (res *Mongo, err error) {
+	log.Printf("[INFO] make new mongo server with dial=%+v, db=%s, delay=%v", dial, dbName, delay)
 	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(delay.Seconds()), ConsistencyMode: mgo.Monotonic})
 	return &Mongo{Connection: mongo.NewConnection(mg, dbName, "msgs")}, err
 }

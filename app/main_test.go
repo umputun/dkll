@@ -51,7 +51,7 @@ func TestServer(t *testing.T) {
 
 	time.Sleep(time.Second) // let server start
 
-	// try to send records
+	// send 2 records
 	conn, err := net.Dial("tcp", "127.0.0.1:5514")
 	require.NoError(t, err)
 	n, err := fmt.Fprintf(conn, "2017-05-30T16:13:35-04:00 BigMac.local docker/cont1[63415]: message 123\n")
@@ -61,7 +61,7 @@ func TestServer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 63, n)
 
-	time.Sleep(600 * time.Millisecond) // allow background writes to finish
+	time.Sleep(1500 * time.Millisecond) // allow background writes to finish
 
 	b, err := ioutil.ReadFile("/tmp/dkll-test/dkll.log")
 	assert.NoError(t, err)

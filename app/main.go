@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/globalsign/mgo"
 	log "github.com/go-pkgz/lgr"
 	"github.com/jessevdk/go-flags"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -24,7 +25,7 @@ import (
 var opts struct {
 	Server struct {
 		Port               int           `long:"port" env:"PORT" default:"8080" description:"rest server port"`
-		Mongo              []string      `long:"mongo" env:"DKLL_MONGO" required:"true" env-delim:"," description:"mongo host:port"`
+		Mongo              []string      `long:"mongo" env:"MONGO" required:"true" env-delim:", " description:"mongo host:port"`
 		MongoPasswd        string        `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
 		MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
 		MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
@@ -151,8 +152,17 @@ func runServer(ctx context.Context) error {
 		}
 	}
 
-	mg, err := server.NewMongo(opts.Server.Mongo, opts.Server.MongoPasswd, opts.Server.MongoDB,
-		opts.Server.MongoTimeout, opts.Server.MongoDelay)
+	dial := mgo.DialInfo{
+		Addrs:    opts.Server.Mongo,
+		AppName:  "dkll",
+		Timeout:  opts.Server.MongoTimeout,
+		Database: "admin",
+	}
+	if opts.Server.MongoPasswd != "" {
+		dial.Username = "admin"
+		dial.Password = opts.Server.MongoPasswd
+	}
+	mg, err := server.NewMongo(dial, opts.Server.MongoDelay, opts.Server.MongoDB)
 	if err != nil {
 		return err
 	}

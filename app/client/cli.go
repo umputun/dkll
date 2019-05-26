@@ -140,7 +140,7 @@ func (c *CLI) getLastID(ctx context.Context) (string, error) {
 		if e != nil {
 			return e
 		}
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { _ = resp.Body.Close() }() // nolint
 		if resp.StatusCode != http.StatusOK {
 
 			return errors.Errorf("http code %d", resp.StatusCode)
@@ -177,10 +177,10 @@ func (c *CLI) getNext(ctx context.Context, request core.Request) (items []core.L
 			return err
 		}
 		if resp.StatusCode != http.StatusOK {
-			_ = resp.Body.Close()
+			_ = resp.Body.Close() // nolint
 			return errors.New("status")
 		}
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { _ = resp.Body.Close() }() // nolint
 		return json.NewDecoder(resp.Body).Decode(&items)
 	})
 

@@ -16,6 +16,7 @@ import (
 var opts struct {
 	Server cmd.ServerOpts `command:"server" description:"server mode"`
 	Client cmd.ClientOpts `command:"client" description:"client mode"`
+	Agent  cmd.AgentOpts  `command:"agent" description:"agent mode"`
 
 	Dbg bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
 }
@@ -56,6 +57,14 @@ func main() {
 		client := cmd.ClientCmd{ClientOpts: opts.Client}
 		if err := client.Run(ctx); err != nil {
 			log.Printf("[ERROR] client failed, %v", err)
+			os.Exit(1)
+		}
+	}
+
+	if p.Active != nil && p.Command.Find("agent") == p.Active {
+		agent := cmd.AgentCmd{AgentOpts: opts.Agent, Revision: revision}
+		if err := agent.Run(ctx); err != nil {
+			log.Printf("[ERROR] agent failed, %v", err)
 			os.Exit(1)
 		}
 	}

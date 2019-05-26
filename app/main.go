@@ -61,6 +61,7 @@ var opts struct {
 	Dbg bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
 }
 
+// LogLimit hold params limiting log size and age
 type LogLimit struct {
 	MaxSize    int `long:"max-size" env:"MAX_SIZE" default:"100" description:"max log size, in megabytes"`
 	MaxBackups int `long:"max-backups" env:"MAX_BACKUPS" default:"10" description:"max number of rotated files"`
@@ -168,8 +169,8 @@ func makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err err
 	log.Printf("[INFO] backup files location %s", opts.Server.FileBackupLocation)
 
 	if opts.Server.EnableMerged {
-		if err = os.MkdirAll(opts.Server.FileBackupLocation, 0755); err != nil {
-			return wrf, mergeLogWriter, err
+		if e := os.MkdirAll(opts.Server.FileBackupLocation, 0750); e != nil {
+			return wrf, mergeLogWriter, e
 		}
 		mergeLogWriter = &lumberjack.Logger{
 			Filename:   path.Join(opts.Server.FileBackupLocation, "/dkll.log"),
@@ -183,7 +184,7 @@ func makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err err
 
 	wrf = func(instance, container string) io.Writer {
 		fname := path.Join(opts.Server.FileBackupLocation, instance, container+".log")
-		if err = os.MkdirAll(path.Dir(fname), 0755); err != nil {
+		if err = os.MkdirAll(path.Dir(fname), 0750); err != nil {
 			log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
 			return ioutil.Discard
 		}

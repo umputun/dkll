@@ -29,7 +29,7 @@ type SyslogBackgroundReader interface {
 	Go(ctx context.Context) (<-chan string, error)
 }
 
-// FileSubmitter writes entry to all log files
+// FileWriter writes entry to all log files
 type FileWriter interface {
 	Write(rec core.LogEntry) error
 }

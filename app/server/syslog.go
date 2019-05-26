@@ -19,7 +19,7 @@ type Syslog struct {
 	server *syslog.Server
 }
 
-// Go starts syslog server and returns channel of received lines
+// Go starts syslog server in background and returns channel with messages
 func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 	log.Print("[INFO] activate syslog server")
 	outCh := make(chan string, 10000) // messages chanel

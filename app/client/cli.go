@@ -1,3 +1,4 @@
+// Package client implement remote client to get and print records
 package client
 
 import (
@@ -144,7 +145,7 @@ func (c *CLI) getLastID(ctx context.Context) (string, error) {
 
 			return errors.Errorf("http code %d", resp.StatusCode)
 		}
-		if e = json.NewDecoder(resp.Body).Decode(&lastEntry); e != nil {
+		if e := json.NewDecoder(resp.Body).Decode(&lastEntry); e != nil {
 			return e
 		}
 		return nil

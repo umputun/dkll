@@ -1,0 +1,26 @@
+
+FROM umputun/baseimage:buildgo-latest as build
+
+ADD . /build/dkll
+WORKDIR /build/dkll
+
+RUN \
+    rev=$(/script/git-rev.sh) && \
+    echo "revision=${rev}" && \
+    GOOS=linux GOARCH=amd64 go build -mod=vendor -o dkll.linux-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=linux GOARCH=arm64 go build -mod=vendor -o dkll.linux-arm64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=windows GOARCH=amd64 go build -mod=vendor -o dkll.windows-amd64.exe -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=darwin GOARCH=amd64 go build -mod=vendor -o dkll.darwin-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app
+
+RUN \
+    apk add --no-cache --update zip && \
+    tar cvzf dkll.linux-amd64.tar.gz dkll.linux-amd64 ./LICENSE ./README.md && \
+    tar cvzf dkll.linux-arm64.tar.gz dkll.linux-arm64 ./LICENSE ./README.md && \
+    tar cvzf dkll.darwin-amd64.tar.gz dkll.darwin-amd64 ./LICENSE ./README.md && \
+    zip dkll.windows-amd64.zip dkll.windows-amd64.exe ./LICENSE ./README.md
+
+
+FROM alpine
+COPY --from=build /build/dkll/dkll.* /artifacts/
+RUN ls -la /artifacts/*
+CMD ["sleep", "100"]

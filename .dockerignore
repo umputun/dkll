@@ -1,0 +1,5 @@
+/var/
+/.vscode/
+/.idea/
+/bin/
+docker-compose.yml

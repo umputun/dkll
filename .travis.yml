@@ -15,6 +15,9 @@ before_install:
   - export MONGO_TEST=mongodb://127.0.0.1:27017
   - export PATH=$(pwd)/bin:$PATH
 
+before_script:
+  - sleep 10
+
 script:
   - go test -v -mod=vendor -covermode=count -coverprofile=profile.cov ./... || travis_terminate 1;
   - golangci-lint run --out-format=tab --tests=false ./... || travis_terminate 1;

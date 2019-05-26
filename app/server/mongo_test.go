@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/globalsign/mgo"
 	"github.com/go-pkgz/mongo"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/umputun/dkll/app/core"
 )
@@ -72,6 +74,15 @@ func TestMongo_Find(t *testing.T) {
 	assert.Equal(t, ts.Add(1*time.Second), recs[0].Ts.In(time.Local))
 	assert.Equal(t, ts.Add(3*time.Second), recs[2].Ts.In(time.Local))
 
+}
+
+func TestMongo_Init(t *testing.T) {
+	m, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}}, 0, "test", "test_msgs")
+	require.NoError(t, err)
+	err = m.WithCollection(func(coll *mgo.Collection) error {
+		return coll.DropCollection()
+	})
+	assert.NoError(t, err)
 }
 
 func prepMongo(t *testing.T) (*Mongo, bool) {

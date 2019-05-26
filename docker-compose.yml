@@ -1,0 +1,44 @@
+version: '2'
+
+services:
+  dkll:
+    build: .
+    image: umputun/dkll
+    container_name: "dkll"
+    hostname: "dkll"
+    restart: always
+
+    logging: &default_logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    environment:
+      - MONGO=mongo
+      - MONGO_DELAY=5s
+      - BACK_LOG=/srv/logs
+      - MONGO_PASSWD=${MONGO_PASSWD}
+
+    ports:
+      - 80:8080
+      - 514:5514
+
+    volumes:
+      - ./var/logs:/srv/logs
+
+    command: ["/srv/dkll", "server"]
+
+  mongo:
+    image: mongo
+    hostname: mongo
+    restart: always
+    logging: *default_logging
+    volumes:
+      - ./var/mongo:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWD}
+    ports:
+      - "27017:27017"
+    command: --smallfiles

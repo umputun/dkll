@@ -57,12 +57,12 @@ func TestMongo_Find(t *testing.T) {
 
 	recs, err = m.Find(core.Request{LastID: "5ce8718aef1d7346a5443a3f"})
 	assert.NoError(t, err)
-	assert.Equal(t, 3, len(recs))
+	assert.Equal(t, 3, len(recs), "records after 5ce8718aef1d7346a5443a3f")
 	assert.Equal(t, "5ce8718aef1d7346a5443a4f", recs[0].ID, "find with last-id")
 
 	recs, err = m.Find(core.Request{Hosts: []string{"h1"}, Containers: []string{"c1"}})
 	assert.NoError(t, err)
-	assert.Equal(t, 2, len(recs))
+	assert.Equal(t, 2, len(recs), "records for host h1 and container c1")
 	assert.Equal(t, "h1", recs[0].Host)
 	assert.Equal(t, "h1", recs[1].Host)
 	assert.Equal(t, "c1", recs[0].Container)
@@ -70,10 +70,36 @@ func TestMongo_Find(t *testing.T) {
 
 	recs, err = m.Find(core.Request{FromTS: ts.Add(1 * time.Second), ToTS: ts.Add(4 * time.Second)})
 	assert.NoError(t, err)
-	assert.Equal(t, 3, len(recs))
+	assert.Equal(t, 3, len(recs), "time interval")
 	assert.Equal(t, ts.Add(1*time.Second), recs[0].Ts.In(time.Local))
 	assert.Equal(t, ts.Add(3*time.Second), recs[2].Ts.In(time.Local))
 
+	recs, err = m.Find(core.Request{Excludes: []string{"c2"}})
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(recs), "exclude container c2")
+	assert.Equal(t, "c1", recs[0].Container)
+	assert.Equal(t, "c1", recs[1].Container)
+	assert.Equal(t, "c1", recs[2].Container)
+
+	recs, err = m.Find(core.Request{Excludes: []string{"c2"}, Containers: []string{"/c/"}})
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(recs), "exclude container c2")
+	assert.Equal(t, "c1", recs[0].Container)
+	assert.Equal(t, "c1", recs[1].Container)
+	assert.Equal(t, "c1", recs[2].Container)
+
+	recs = []core.LogEntry{
+		{ID: "5ce8718aef1d7346a5443b1f", Host: "hh1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443b2f", Host: "hh22", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443b3f", Host: "hh3456", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
+	}
+	assert.NoError(t, m.Publish(recs))
+	recs, err = m.Find(core.Request{Hosts: []string{"/hh/"}})
+	assert.NoError(t, err, "regex hh hosts")
+	assert.Equal(t, 3, len(recs))
+	assert.Equal(t, "hh1", recs[0].Host)
+	assert.Equal(t, "hh22", recs[1].Host)
+	assert.Equal(t, "hh3456", recs[2].Host)
 }
 
 func TestMongo_Init(t *testing.T) {
@@ -83,6 +109,11 @@ func TestMongo_Init(t *testing.T) {
 		return coll.DropCollection()
 	})
 	assert.NoError(t, err)
+}
+
+func TestMongo_InitFailed(t *testing.T) {
+	_, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.2:27017"}, Timeout: 100 * time.Millisecond}, 0, "test", "test_msgs")
+	require.NotNil(t, err)
 }
 
 func prepMongo(t *testing.T) (*Mongo, bool) {

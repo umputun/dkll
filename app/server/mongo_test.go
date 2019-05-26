@@ -83,7 +83,7 @@ func prepMongo(t *testing.T) (*Mongo, bool) {
 	mongo.RemoveTestCollection(t, conn)
 
 	mg := Mongo{Connection: conn}
-	mongo.RemoveTestCollections(t, conn, "msgs")
+	mongo.RemoveTestCollections(t, conn, "msgs_test")
 
 	return &mg, false
 }

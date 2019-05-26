@@ -30,10 +30,11 @@ func TestServer(t *testing.T) {
 	os.Args = []string{"dkll", "server", "--dbg", "--mongo=127.0.0.1:27017", "--mongo-db=test",
 		"--backup=/tmp/dkll-test", "--merged", "--syslog-port=15514"}
 	defer func() {
-		os.RemoveAll("/tmp/dkll-test")
-		mgconn.WithCollection(func(coll *mgo.Collection) error {
+		_ = os.RemoveAll("/tmp/dkll-test")
+		e := mgconn.WithCollection(func(coll *mgo.Collection) error {
 			return coll.DropCollection()
 		})
+		require.NoError(t, e)
 	}()
 
 	go func() {

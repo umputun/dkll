@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -43,8 +44,8 @@ func TestRest_findCtrl(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, req, ds.req)
-	recs := []core.LogEntry{}
+	assert.Equal(t, req, ds.getReq())
+	var recs []core.LogEntry
 	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&recs))
 	assert.Equal(t, 6, len(recs))
 	assert.Equal(t, "5ce8718aef1d7346a5443a1f", recs[0].ID)
@@ -98,11 +99,13 @@ func TestRest_streamCtrl(t *testing.T) {
 	require.NoError(t, err)
 
 	st := time.Now()
+
 	resp, err := http.Post(ts.URL+"/v1/stream?timeout=200ms", "application/json", &buff)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, req, ds.req)
+	assert.Equal(t, req, ds.getReq())
+
 	data, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.True(t, time.Since(st) >= time.Millisecond*600, "4 responses slowed by 100 and + 200ms timeout")
@@ -118,13 +121,19 @@ func TestRest_streamCtrl(t *testing.T) {
 }
 
 type mockDataService struct {
-	req        core.Request
+	req struct {
+		sync.Mutex
+		v core.Request
+	}
 	maxRepeats int32
 	repeats    int32
 }
 
 func (m *mockDataService) Find(req core.Request) ([]core.LogEntry, error) {
-	m.req = req
+	m.req.Lock()
+	m.req.v = req
+	m.req.Unlock()
+
 	if req.LastID == "err" {
 		return nil, errors.New("the error")
 	}
@@ -158,4 +167,11 @@ func (m *mockDataService) Find(req core.Request) ([]core.LogEntry, error) {
 func (m *mockDataService) LastPublished() (entry core.LogEntry, err error) {
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	return core.LogEntry{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)}, nil
+}
+
+func (m *mockDataService) getReq() core.Request {
+	m.req.Lock()
+	defer m.req.Unlock()
+	return m.req.v
+
 }

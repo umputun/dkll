@@ -23,7 +23,7 @@ deploy:
 	docker rm -f dkll.bin
 
 test:
-	 cd app && go test -v -mod=vendor
+	 cd app && go test -v -mod=vendor -race ./...
 
 lint:
 	 cd app && golangci-lint run --out-format=tab --tests=false ./...

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/umputun/dkll/app/agent/discovery"
 )

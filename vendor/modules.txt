@@ -92,7 +92,7 @@ github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+# golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/sys v0.0.0-20190524152521-dbbf3f1254d4
 golang.org/x/sys/windows

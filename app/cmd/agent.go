@@ -78,7 +78,7 @@ func (a AgentCmd) Run(ctx context.Context) error {
 }
 
 // makeLogWriters creates io.Writer with rotated out and separate err files. Also adds writer for remote syslog
-func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 	log.Printf("[DEBUG] create log writer for %s", strings.TrimPrefix(group+"/"+containerName, "/"))
 	if !a.EnableFiles && !a.EnableSyslog {
 		return nil, nil, errors.New("either files or syslog has to be enabled")
@@ -100,7 +100,7 @@ func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWri
 	}
 
 	if a.EnableSyslog && syslog.IsSupported() {
-		syslogWriter, err := syslog.GetWriter(a.SyslogHost, a.SyslogPrefix, containerName)
+		syslogWriter, err := syslog.GetWriter(ctx, a.SyslogHost, a.SyslogPrefix, containerName)
 
 		if err == nil {
 			logWriters = append(logWriters, syslogWriter)

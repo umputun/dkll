@@ -17,7 +17,7 @@ func TestAgent(t *testing.T) {
 
 	lwr, ewr := mockWriter{}, mockWriter{}
 	el := EventLoop{
-		WriterFactory: func(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
 		},
 		Events:    newMockEventer(),

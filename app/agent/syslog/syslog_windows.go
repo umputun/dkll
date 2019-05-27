@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-func GetWriter(syslogHost, syslogPrefix, containerName string) (io.WriteCloser, error) {
+func GetWriter(ctx context.Context, syslogHost, syslogPrefix, containerName string) (io.WriteCloser, error) {
 	return nil, errors.New("syslog is not supported on this os")
 }
 

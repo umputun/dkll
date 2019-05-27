@@ -39,7 +39,7 @@ func Test_makeLogWriters(t *testing.T) {
 
 	opts := AgentOpts{FilesLocation: "/tmp/logger.test", EnableFiles: true, MaxFileSize: 1, MaxFilesCount: 10}
 	a := AgentCmd{AgentOpts: opts}
-	stdWr, errWr, err := a.makeLogWriters("container1", "gr1")
+	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)
 	assert.NotEqual(t, stdWr, errWr, "different writers for out and err")
 
@@ -72,7 +72,7 @@ func Test_makeLogWritersMixed(t *testing.T) {
 
 	opts := AgentOpts{FilesLocation: "/tmp/logger.test", EnableFiles: true, MaxFileSize: 1, MaxFilesCount: 10, MixErr: true}
 	a := AgentCmd{AgentOpts: opts}
-	stdWr, errWr, err := a.makeLogWriters("container1", "gr1")
+	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)
 	assert.Equal(t, stdWr, errWr, "same writer for out and err in mixed mode")
 
@@ -100,7 +100,7 @@ func Test_makeLogWritersWithJSON(t *testing.T) {
 	defer os.RemoveAll("/tmp/logger.test")
 	opts := AgentOpts{FilesLocation: "/tmp/logger.test", EnableFiles: true, MaxFileSize: 1, MaxFilesCount: 10, ExtJSON: true}
 	a := AgentCmd{AgentOpts: opts}
-	stdWr, errWr, err := a.makeLogWriters("container1", "gr1")
+	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)
 
 	// write to out writer
@@ -121,14 +121,16 @@ func Test_makeLogWritersWithJSON(t *testing.T) {
 func Test_makeLogWritersSyslogFailed(t *testing.T) {
 	opts := AgentOpts{EnableSyslog: true}
 	a := AgentCmd{AgentOpts: opts}
-	_, _, err := a.makeLogWriters("container1", "gr1")
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Second, cancel)
+	_, _, err := a.makeLogWriters(ctx, "container1", "gr1")
 	require.NotNil(t, err)
 }
 
 func Test_makeLogWritersSyslogPassed(t *testing.T) {
 	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:514", SyslogPrefix: "docker/"}
 	a := AgentCmd{AgentOpts: opts}
-	stdWr, errWr, err := a.makeLogWriters("container1", "gr1")
+	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)
 	assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
 

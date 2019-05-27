@@ -12,8 +12,8 @@ import (
 )
 
 // GetWriter returns syslog writer for non-win platform
-func GetWriter(syslogHost, syslogPrefix, containerName string) (res io.WriteCloser, err error) {
-	e := repeater.NewDefault(10, time.Second).Do(context.Background(), func() error {
+func GetWriter(ctx context.Context, syslogHost, syslogPrefix, containerName string) (res io.WriteCloser, err error) {
+	e := repeater.NewDefault(10, time.Second).Do(ctx, func() error {
 		res, err = syslog.Dial("udp4", syslogHost, syslog.LOG_WARNING|syslog.LOG_DAEMON, syslogPrefix+containerName)
 		return err
 	})

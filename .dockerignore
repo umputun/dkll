@@ -2,5 +2,5 @@
 /.vscode/
 /.idea/
 /bin/
-compose.-server.yml
+compose-server.yml
 /logs/

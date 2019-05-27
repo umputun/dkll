@@ -1,7 +1,7 @@
 # DKLL [![Build Status](https://travis-ci.org/umputun/dkll.svg?branch=master)](https://travis-ci.org/umputun/dkll) [![Go Report Card](https://goreportcard.com/badge/github.com/umputun/dkll)](https://goreportcard.com/report/github.com/umputun/dkll) [![Coverage Status](https://coveralls.io/repos/github/umputun/dkll/badge.svg?branch=master)](https://coveralls.io/github/umputun/dkll?branch=master)
 
 
-Logging server and CLI client for dockerized infrastructure. 
+Logging server, agent and CLI client for dockerized infrastructure. 
 
 ## Server
 
@@ -11,9 +11,17 @@ All records parsed, analyzed and stored in mongodb (capped collection). Optional
 
 ### Usage
 
-**dkll [OPTIONS] server [server-OPTIONS]**
+1. Copy provided `compose-server.yml` to `docker-compose.yml` 
+2. Adjust `docker-compose.yml` if needed. 
+3. Pull containers - `docker-compose pull`
+4. Start server - `docker-compose up -d`
+
+
+command line options and env params:
 
 ```
+dkll [OPTIONS] server [server-OPTIONS]
+
 Application Options:
       --dbg                              show debug info [$DEBUG]
 
@@ -41,11 +49,60 @@ Help Options:
           --limit.merged.max-age=        max age of rotated files (default: 30) [$MAX_AGE]
 ```
 
-TODO
 
 ### API
 
-TODO
+Records format (response):
+
+```go
+type LogEntry struct {
+	ID        string    `json:"id"`         // record ID
+	Host      string    `json:"host"`       // host name
+	Container string    `json:"container"`  // container
+	Pid       int       `json:"pid"`        // process id
+	Msg       string    `json:"msg"`        // log message
+	Ts        time.Time `json:"ts"`         // reported time 
+	CreatedTs time.Time `json:"cts"`        // creation time
+}
+```
+
+- `GET /v1/last` - get last records `LogEntry`
+- `POST /v1/find` - find records for given `Request`
+
+```go
+type Request struct {
+	LastID     string    `json:"id"`                   // get records after this id
+	Limit      int       `json:"max"`                  // max size of response, i.e. number of messages one request can return
+	Hosts      []string  `json:"hosts,omitempty"`      // list of hosts, can be exact match or regex in from of /regex/
+	Containers []string  `json:"containers,omitempty"` // list of containers, can be regex as well
+	Excludes   []string  `json:"excludes,omitempty"`   // list of excluded containers, can be regex
+	FromTS     time.Time `json:"from_ts,omitempty"`    
+	ToTS       time.Time `json:"to_ts,omitempty"`
+}
+```
+
+## Agent
+
+Agent container runs on each host and collects logs from all containers on the host. The logs sent to remote dkll server and 
+stored locally (optional).
+
+To deploy agent use provided `compose-agent.yml` 
+
+```
+      -d, --docker=        docker host (default: unix:///var/run/docker.sock) [$DOCKER_HOST]
+          --syslog         enable logging to syslog [$LOG_SYSLOG]
+          --syslog-host=   syslog host (default: 127.0.0.1:514) [$SYSLOG_HOST]
+          --syslog-prefix= syslog prefix (default: docker/) [$SYSLOG_PREFIX]
+          --files          enable logging to files [$LOG_FILES]
+          --max-size=      size of log triggering rotation (MB) (default: 10) [$MAX_SIZE]
+          --max-files=     number of rotated files to retain (default: 5) [$MAX_FILES]
+          --max-age=       maximum number of days to retain (default: 30) [$MAX_AGE]
+          --mix-err        send error to std output log file [$MIX_ERR]
+          --loc=           log files locations (default: logs) [$LOG_FILES_LOC]
+      -x, --exclude=       excluded container names [$EXCLUDE]
+      -i, --include=       included container names [$INCLUDE]
+      -j, --json           wrap message with JSON envelope [$JSON]
+```
 
 ## Client
 
@@ -53,9 +110,13 @@ Command line client accessing dkll server and printing the content.
 
 ### Usage
 
-**dkll [OPTIONS] client [client-OPTIONS]**
+DKLL client should be used directly as a compiled binary. You can get precompiled [release](https://github
+.com/umputun/dkll/releases) or build it from the source (`make deploy`). 
 
 ```
+dkll [OPTIONS] client [client-OPTIONS]
+
+
 Application Options:
       --dbg       show debug info [$DEBUG]
 
@@ -77,6 +138,7 @@ Help Options:
       -G=         un-grep on entire record
           --tail= number of initial records (default: 10)
           --tz=   time zone (default: Local)
-
 ```
-TODO
+
+* containers (-c), hosts (-h) and exclusions (-x) can be repeated multiple times. 
+* both containers and hosts support regex inside "/", i.e. `/^something/`

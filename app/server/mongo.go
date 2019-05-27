@@ -2,6 +2,7 @@ package server
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/globalsign/mgo"
@@ -16,6 +17,10 @@ import (
 // Mongo store provides all mongo-related ops
 type Mongo struct {
 	*mongo.Connection
+	lastPublished struct {
+		entry core.LogEntry
+		sync.Mutex
+	}
 }
 
 type mongoLogEntry struct {
@@ -51,11 +56,28 @@ func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 	err = m.WithCollection(func(coll *mgo.Collection) error {
 		return coll.Insert(recs...)
 	})
+	if len(records) > 0 {
+		m.lastPublished.Lock()
+		m.lastPublished.entry = records[len(records)-1]
+		m.lastPublished.Unlock()
+	}
 	return err
 }
 
 // LastPublished returns latest published entry
 func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
+
+	cachedLast := func() (e core.LogEntry, ok bool) {
+		m.lastPublished.Lock()
+		e = m.lastPublished.entry
+		m.lastPublished.Unlock()
+		return e, e.ID != ""
+	}
+
+	if e, ok := cachedLast(); ok {
+		return e, nil
+	}
+
 	var mentry mongoLogEntry
 	err = m.WithCollection(func(coll *mgo.Collection) error {
 		return coll.Find(bson.M{}).Sort("-_id").Limit(1).One(&mentry)
@@ -65,6 +87,14 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 
 // Find records matching given request
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
+
+	// eliminate mongo find if lastPublished ID < req.LastID
+	m.lastPublished.Lock()
+	lastPublishedCached := m.lastPublished.entry
+	m.lastPublished.Unlock()
+	if req.LastID != "" && lastPublishedCached.ID != "" && req.LastID >= lastPublishedCached.ID {
+		return []core.LogEntry{}, nil
+	}
 
 	query := m.makeQuery(req)
 

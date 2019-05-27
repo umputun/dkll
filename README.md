@@ -107,10 +107,10 @@ backend by implementing 2 interfaces ([Publisher](https://github.com/umputun/dkl
 
 ### Security and auth
 
-Both syslog and http don't restrict access. To allow some basic auth the simplest way is to run dkll server behind [nginx-le]
-(https://github.com/umputun/nginx-le) proxy with basic auth [configured on nginx level](https://docs.nginx
-.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/). To limit access to syslog port (514) firewall
- (internal or external) cab be used.
+Both syslog and http don't restrict access. To allow some basic auth the simplest way is to run dkll server
+behind [nginx-le](https://github.com/umputun/nginx-le) proxy with basic auth
+[configured on nginx level](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/). 
+To limit access to syslog port (514) firewall (internal or external) cab be used.
  
 TODO: example
  

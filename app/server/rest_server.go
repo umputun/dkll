@@ -133,7 +133,7 @@ func (s *RestServer) streamCtrl(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(recs) > 0 {
 			for _, rec := range recs {
-				if err := json.NewEncoder(w).Encode(&rec); err != nil {
+				if err := json.NewEncoder(w).Encode(rec); err != nil {
 					render.Status(r, http.StatusInternalServerError)
 					render.JSON(w, r, rest.JSON{"error": err.Error()})
 					return

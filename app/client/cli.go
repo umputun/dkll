@@ -142,13 +142,9 @@ func (c *CLI) getLastID(ctx context.Context) (string, error) {
 		}
 		defer func() { _ = resp.Body.Close() }() // nolint
 		if resp.StatusCode != http.StatusOK {
-
 			return errors.Errorf("http code %d", resp.StatusCode)
 		}
-		if e := json.NewDecoder(resp.Body).Decode(&lastEntry); e != nil {
-			return e
-		}
-		return nil
+		return json.NewDecoder(resp.Body).Decode(&lastEntry)
 	})
 
 	if err != nil {

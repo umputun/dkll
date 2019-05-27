@@ -30,6 +30,7 @@ type Eventer interface {
 	Channel() <-chan discovery.Event
 }
 
+// Run blocking even loop. Receives events from Eventer and makes new log streams. Also deregister terminated streams.
 func (l *EventLoop) Run(ctx context.Context) {
 	l.logStreams = map[string]logger.LogStreamer{}
 

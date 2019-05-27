@@ -44,7 +44,7 @@ type AgentCmd struct {
 	Revision string
 }
 
-// Run agent
+// Run agent app
 func (a AgentCmd) Run(ctx context.Context) error {
 	fmt.Printf("dkll agent %s\n", a.Revision)
 

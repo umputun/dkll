@@ -10,7 +10,7 @@ import (
 	log "github.com/go-pkgz/lgr"
 )
 
-// LogClient wraps DockerClient with the minimal interface
+// LogClient wraps DockerClient with the minimal interface to fetch logs
 type LogClient interface {
 	Logs(docker.LogsOptions) error
 }
@@ -29,7 +29,7 @@ type LogStreamer struct {
 }
 
 // Go activates streamer
-func (l *LogStreamer) Go(ctx context.Context) *LogStreamer {
+func (l *LogStreamer) Go(ctx context.Context) {
 	log.Printf("[INFO] start log streamer for %s", l.ContainerName)
 	l.ctx, l.cancel = context.WithCancel(ctx)
 
@@ -65,8 +65,6 @@ func (l *LogStreamer) Go(ctx context.Context) *LogStreamer {
 		}
 		log.Printf("[INFO] stream from %s terminated", l.ContainerID)
 	}()
-
-	return l
 }
 
 // Close kills streamer

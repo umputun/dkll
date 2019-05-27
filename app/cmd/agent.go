@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/umputun/dkll/app/agent"
 	"github.com/umputun/dkll/app/agent/discovery"
 	"github.com/umputun/dkll/app/agent/logger"
 	"github.com/umputun/dkll/app/agent/syslog"
@@ -65,69 +66,15 @@ func (a AgentCmd) Run(ctx context.Context) error {
 		return errors.Wrap(err, "failed to make event notifier")
 	}
 
-	a.runEventLoop(ctx, events, client)
+	loop := agent.EventLoop{
+		LogClient:     client,
+		MixOuts:       a.MixErr,
+		WriterFactory: a.makeLogWriters,
+		Events:        events,
+	}
+
+	loop.Run(ctx)
 	return nil
-}
-
-func (a AgentCmd) runEventLoop(ctx context.Context, events *discovery.EventNotif, client *docker.Client) {
-	logStreams := map[string]logger.LogStreamer{}
-
-	procEvent := func(event discovery.Event) {
-
-		if event.Status {
-			// new/started container detected
-			logWriter, errWriter := a.makeLogWriters(event.ContainerName, event.Group)
-			ls := logger.LogStreamer{
-				DockerClient:  client,
-				ContainerID:   event.ContainerID,
-				ContainerName: event.ContainerName,
-				LogWriter:     logWriter,
-				ErrWriter:     errWriter,
-			}
-			ls = *ls.Go(ctx)
-			logStreams[event.ContainerID] = ls
-			log.Printf("[DEBUG] streaming for %d containers", len(logStreams))
-			return
-		}
-
-		// removed/stopped container detected
-		ls, ok := logStreams[event.ContainerID]
-		if !ok {
-			log.Printf("[DEBUG] close loggers event %+v for non-mapped container ignored", event)
-			return
-		}
-
-		log.Printf("[DEBUG] close loggers for %+v", event)
-		ls.Close()
-
-		if e := ls.LogWriter.Close(); e != nil {
-			log.Printf("[WARN] failed to close log writer for %+v, %s", event, e)
-		}
-
-		if !a.MixErr { // don't close err writer in mixed mode, closed already by LogWriter.Close()
-			if e := ls.ErrWriter.Close(); e != nil {
-				log.Printf("[WARN] failed to close err writer for %+v, %s", event, e)
-			}
-		}
-		delete(logStreams, event.ContainerID)
-		log.Printf("[DEBUG] streaming for %d containers", len(logStreams))
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Print("[WARN] event loop terminated")
-			for _, v := range logStreams {
-				v.Close()
-				log.Printf("[INFO] close logger stream for %s", v.ContainerName)
-			}
-			return
-		case event := <-events.Channel():
-			log.Printf("[DEBUG] received event %+v", event)
-			procEvent(event)
-		}
-	}
-
 }
 
 // makeLogWriters creates io.Writer with rotated out and separate err files. Also adds writer for remote syslog

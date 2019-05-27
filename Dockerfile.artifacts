@@ -14,10 +14,10 @@ RUN \
 
 RUN \
     apk add --no-cache --update zip && \
-    tar cvzf dkll.linux-amd64.tar.gz dkll.linux-amd64 ./LICENSE ./README.md && \
-    tar cvzf dkll.linux-arm64.tar.gz dkll.linux-arm64 ./LICENSE ./README.md && \
-    tar cvzf dkll.darwin-amd64.tar.gz dkll.darwin-amd64 ./LICENSE ./README.md && \
-    zip dkll.windows-amd64.zip dkll.windows-amd64.exe ./LICENSE ./README.md
+    tar cvzf dkll.linux-amd64.tar.gz dkll.linux-amd64 LICENSE README.md && \
+    tar cvzf dkll.linux-arm64.tar.gz dkll.linux-arm64 LICENSE README.md && \
+    tar cvzf dkll.darwin-amd64.tar.gz dkll.darwin-amd64 LICENSE README.md && \
+    zip dkll.windows-amd64.zip dkll.windows-amd64.exe LICENSE README.md
 
 
 FROM alpine

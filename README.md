@@ -3,6 +3,13 @@
 
 Logging server, agent and CLI client for dockerized infrastructure. 
 
+- Each host runs `dkll agent` container collecting logs from all docker containers on the host.
+- The agent can store logs locally, or/and forward them to remote syslog server.
+- Server (`dkll server`) container installed on another host, acts as syslog server and stores logs.
+- Server also provides http api to access logs.
+- Client (`dkll clinet`) is a binary command-line utility to read/filter/search and follow logs.
+
+
 ## Build from the source
 
 - clone this repo - `git clone https://github.com/umputun/dkll.git`

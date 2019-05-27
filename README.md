@@ -95,6 +95,8 @@ type Request struct {
 }
 ```
 
+- `POST /v1/stream?timeout=10s` - find records for given `Request` and stream it. Terminate stream on `timeout` inactivity.
+
 ### Storage
 
 DKLL server uses mongo db to save and access records. It is possible and almost trivial to replace mongo with different 

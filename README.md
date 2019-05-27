@@ -132,20 +132,30 @@ stored and rotated locally. The agent can intercept logs from containers configu
 
 To deploy agent use provided `compose-agent.yml` 
 
-| Command line    | Environment   | Default                     | Description                                    |
-| --------------- | ------------- | --------------------------- | ---------------------------------------------- |
-| `--docker`      | `DOCKER_HOST` | unix:///var/run/docker.sock | docker host                                    |
-| `--syslog-host` | `SYSLOG_HOST` | 127.0.0.1:514               | syslog remote host (udp4)                      |
-| `--files`       | `LOG_FILES`   | No                          | enable logging to files                        |
-| `--syslog`      | `LOG_SYSLOG`  | No                          | enable logging to syslog                       |
-| `--max-size`    | `MAX_SIZE`    | 10                          | size of log triggering rotation (MB)           |
-| `--max-files`   | `MAX_FILES`   | 5                           | number of rotated files to retain              |
-| `--mix-err`     | `MIX_ERR`     | false                       | send error to std output log file
-| `--max-age`     | `MAX_AGE`     | 30                          | maximum number of days to retain               |
-| `--exclude`     | `EXCLUDE`     |                             | excluded container names, comma separated      |
-| `--include`     | `INCLUDE`     |                             | only included container names, comma separated |
-|                 | `TIME_ZONE`   | UTC                         | time zone for container                        |
-| `--json`, `-j`  | `JSON`        | false                       | output formatted as JSON                       |
+```
+dkll [OPTIONS] agent [agent-OPTIONS]
+
+Application Options:
+      --dbg                show debug info [$DEBUG]
+
+Help Options:
+  -h, --help               Show this help message
+
+[agent command options]
+      -d, --docker=        docker host (default: unix:///var/run/docker.sock) [$DOCKER_HOST]
+          --syslog         enable logging to syslog [$LOG_SYSLOG]
+          --syslog-host=   syslog host (default: 127.0.0.1:514) [$SYSLOG_HOST]
+          --syslog-prefix= syslog prefix (default: docker/) [$SYSLOG_PREFIX]
+          --files          enable logging to files [$LOG_FILES]
+          --max-size=      size of log triggering rotation (MB) (default: 10) [$MAX_SIZE]
+          --max-files=     number of rotated files to retain (default: 5) [$MAX_FILES]
+          --max-age=       maximum number of days to retain (default: 30) [$MAX_AGE]
+          --mix-err        send error to std output log file [$MIX_ERR]
+          --loc=           log files locations (default: logs) [$LOG_FILES_LOC]
+      -x, --exclude=       excluded container names [$EXCLUDE]
+      -i, --include=       included container names [$INCLUDE]
+      -j, --json           wrap message with JSON envelope [$JSON]
+```
 
 - at least one of destinations (`files` or `syslog`) should be allowed
 - location of log files can be mapped to host via `volume`, ex: `- ./logs:/srv/logs` (see `compose-agent.yml`)

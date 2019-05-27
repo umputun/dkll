@@ -1,0 +1,31 @@
+version: '2'
+
+services:
+  logger:
+    build: .
+    image: umputun/dkll
+    container_name: "dkll-agent"
+    hostname: "dkll-agent"
+    restart: always
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    environment:
+      - LOG_FILES=true
+      - LOG_SYSLOG=false
+      - EXCLUDE=docker-logger
+      - MAX_FILES=10
+      - MAX_SIZE=50
+      - MAX_AGE=20
+      - DEBUG=false
+    # - TIME_ZONE=America/Chicago
+
+    volumes:
+      - ./logs:/srv/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    command: ["/srv/dkll", "agent"]

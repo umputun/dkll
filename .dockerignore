@@ -2,4 +2,5 @@
 /.vscode/
 /.idea/
 /bin/
-docker-compose.yml
+compose.-server.yml
+/logs/

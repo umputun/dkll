@@ -1,11 +1,11 @@
 version: '2'
 
 services:
-  dkll:
+  dkll-server:
     build: .
     image: umputun/dkll
-    container_name: "dkll"
-    hostname: "dkll"
+    container_name: "dkll-server"
+    hostname: "dkll-server"
     restart: always
 
     logging: &default_logging

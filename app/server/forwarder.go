@@ -29,7 +29,7 @@ type SyslogBackgroundReader interface {
 	Go(ctx context.Context) (<-chan string, error)
 }
 
-// FileSubmitter writes entry to all log files
+// FileWriter writes entry to all log files
 type FileWriter interface {
 	Write(rec core.LogEntry) error
 }
@@ -53,8 +53,12 @@ func (f *Forwarder) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			writerWg.Wait() // wait for backgroundWriter completion
+			<-syslogCh      // wait for syslog close
 			return ctx.Err()
-		case line := <-syslogCh:
+		case line, ok := <-syslogCh:
+			if !ok {
+				continue
+			}
 			ent, err := core.NewEntry(line, time.Local)
 			if err != nil {
 				log.Printf("[WARN] failed to make entry from %q, %v", line, err)

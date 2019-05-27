@@ -19,13 +19,14 @@ type Syslog struct {
 	server *syslog.Server
 }
 
-// Go starts syslog server and returns channel of received lines
+// Go starts syslog server in background and returns channel with messages
 func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
-	log.Print("[INFO] activate syslog server")
+	log.Printf("[INFO] activate syslog server on %d", s.Port)
 	outCh := make(chan string, 10000) // messages chanel
 	inCh := make(syslog.LogPartsChannel)
 	handler := syslog.NewChannelHandler(inCh)
 	s.server = syslog.NewServer()
+	s.server.SetTimeout(1000)
 	s.server.SetFormat(&origFormatter{})
 	s.server.SetHandler(handler)
 	addr := fmt.Sprintf("0.0.0.0:%d", s.Port)
@@ -52,13 +53,14 @@ func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 
 	go func() {
 		<-ctx.Done()
+		log.Print("[DEBUG] syslog termination requested")
 		if err := s.server.Kill(); err != nil {
-			log.Printf("[ERROR] failed to kill syslog server, %v", err)
+			log.Printf("[WARN] failed to kill syslog server, %v", err)
 		}
 		s.server.Wait()
 		close(inCh)
 		close(outCh)
-		log.Print("[WARN] syslog server terminated")
+		log.Print("[INFO] syslog server terminated")
 	}()
 
 	return outCh, nil

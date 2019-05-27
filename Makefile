@@ -22,4 +22,10 @@ deploy:
 	docker cp dkll.bin:/artifacts/dkll.windows-amd64.zip bin/dkll.windows-amd64.zip
 	docker rm -f dkll.bin
 
+test:
+	 cd app && go test -v -mod=vendor
+
+lint:
+	 cd app && golangci-lint run --out-format=tab --tests=false ./...
+
 .PHONY: bin

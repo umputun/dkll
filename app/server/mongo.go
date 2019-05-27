@@ -29,14 +29,14 @@ type mongoLogEntry struct {
 }
 
 // NewMongo makes Mongo accessor
-func NewMongo(dial mgo.DialInfo, delay time.Duration, dbName string, collection string) (res *Mongo, err error) {
+func NewMongo(dial mgo.DialInfo, delay time.Duration, dbName, collection string) (res *Mongo, err error) {
 	log.Printf("[INFO] make new mongo server with dial=%+v, db=%s, delay=%v", dial, dbName, delay)
 	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(delay.Seconds()), ConsistencyMode: mgo.Monotonic})
 	if err != nil {
 		return nil, err
 	}
 	res = &Mongo{Connection: mongo.NewConnection(mg, dbName, collection)}
-	if err = res.init(collection); err != nil {
+	if err := res.init(collection); err != nil {
 		return nil, err
 	}
 	return res, nil

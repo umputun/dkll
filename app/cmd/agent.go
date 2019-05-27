@@ -78,53 +78,25 @@ func (a AgentCmd) Run(ctx context.Context) error {
 }
 
 // makeLogWriters creates io.Writer with rotated out and separate err files. Also adds writer for remote syslog
-func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWriter io.WriteCloser) {
+func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 	log.Printf("[DEBUG] create log writer for %s", strings.TrimPrefix(group+"/"+containerName, "/"))
 	if !a.EnableFiles && !a.EnableSyslog {
-		log.Fatalf("[ERROR] either files or syslog has to be enabled")
+		return nil, nil, errors.New("either files or syslog has to be enabled")
 	}
 
 	var logWriters []io.WriteCloser // collect log writers here, for MultiWriter use
 	var errWriters []io.WriteCloser // collect err writers here, for MultiWriter use
 
+	var fileErr, syslogErr error
 	if a.EnableFiles {
-
-		logDir := a.FilesLocation
-		if group != "" {
-			logDir = fmt.Sprintf("%s/%s", a.FilesLocation, group)
+		logFileWriter, errFileWriter, err := a.makeFileWriters(containerName, group)
+		if err != nil {
+			fileErr = err
+			log.Printf("[WARN] failed to make log file writers for %s, %v", containerName, err)
+		} else {
+			logWriters = append(logWriters, logFileWriter)
+			errWriters = append(errWriters, errFileWriter)
 		}
-		if err := os.MkdirAll(logDir, 0750); err != nil {
-			log.Fatalf("[ERROR] can't make directory %s, %v", logDir, err)
-		}
-
-		logName := fmt.Sprintf("%s/%s.log", logDir, containerName)
-		logFileWriter := &lumberjack.Logger{
-			Filename:   logName,
-			MaxSize:    a.MaxFileSize, // megabytes
-			MaxBackups: a.MaxFilesCount,
-			MaxAge:     a.MaxFilesAge, // in days
-			Compress:   true,
-		}
-
-		// use std writer for errors by default
-		errFileWriter := logFileWriter
-		errFname := logName
-
-		if !a.MixErr { // if writers not mixed make error writer
-			errFname = fmt.Sprintf("%s/%s.err", logDir, containerName)
-			errFileWriter = &lumberjack.Logger{
-				Filename:   errFname,
-				MaxSize:    a.MaxFileSize, // megabytes
-				MaxBackups: a.MaxFilesCount,
-				MaxAge:     a.MaxFilesAge, // in days
-				Compress:   true,
-			}
-		}
-
-		logWriters = append(logWriters, logFileWriter)
-		errWriters = append(errWriters, errFileWriter)
-		log.Printf("[INFO] loggers created for %s and %s, max.size=%dM, max.files=%d, max.days=%d",
-			logName, errFname, a.MaxFileSize, a.MaxFilesCount, a.MaxFilesAge)
 	}
 
 	if a.EnableSyslog && syslog.IsSupported() {
@@ -134,6 +106,7 @@ func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWri
 			logWriters = append(logWriters, syslogWriter)
 			errWriters = append(errWriters, syslogWriter)
 		} else {
+			syslogErr = err
 			log.Printf("[WARN] can't connect to syslog, %v", err)
 		}
 	}
@@ -145,5 +118,48 @@ func (a AgentCmd) makeLogWriters(containerName, group string) (logWriter, errWri
 		ew = ew.WithExtJSON(containerName, group)
 	}
 
-	return lw, ew
+	if len(logWriters) == 0 {
+		return nil, nil, errors.Errorf("all log writers failed. file %+v, syslog %+v", fileErr, syslogErr)
+	}
+
+	return lw, ew, nil
+}
+
+func (a AgentCmd) makeFileWriters(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+	logDir := a.FilesLocation
+	if group != "" {
+		logDir = fmt.Sprintf("%s/%s", a.FilesLocation, group)
+	}
+	if err := os.MkdirAll(logDir, 0750); err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to make logs directory %s", logDir)
+	}
+
+	logName := fmt.Sprintf("%s/%s.log", logDir, containerName)
+	logFileWriter := &lumberjack.Logger{
+		Filename:   logName,
+		MaxSize:    a.MaxFileSize, // megabytes
+		MaxBackups: a.MaxFilesCount,
+		MaxAge:     a.MaxFilesAge, // in days
+		Compress:   true,
+	}
+
+	// use std writer for errors by default
+	errFileWriter := logFileWriter
+	errFname := logName
+
+	if !a.MixErr { // if writers not mixed make error writer
+		errFname = fmt.Sprintf("%s/%s.err", logDir, containerName)
+		errFileWriter = &lumberjack.Logger{
+			Filename:   errFname,
+			MaxSize:    a.MaxFileSize, // megabytes
+			MaxBackups: a.MaxFilesCount,
+			MaxAge:     a.MaxFilesAge, // in days
+			Compress:   true,
+		}
+	}
+
+	log.Printf("[INFO] loggers created for %s and %s, max.size=%dM, max.files=%d, max.days=%d",
+		logName, errFname, a.MaxFileSize, a.MaxFilesCount, a.MaxFilesAge)
+
+	return logFileWriter, errFileWriter, nil
 }

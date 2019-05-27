@@ -14,7 +14,7 @@ import (
 // EventLoop reacts on messages from Events, adds+activate LogStreamer as well as stop+remove them.
 type EventLoop struct {
 	MixOuts       bool
-	WriterFactory func(containerName, group string) (logWriter, errWriter io.WriteCloser)
+	WriterFactory func(containerName, group string) (logWriter, errWriter io.WriteCloser, err error)
 	LogClient     LogClient
 	Events        Eventer
 	logStreams    map[string]logger.LogStreamer // keep streams per containerID
@@ -57,7 +57,12 @@ func (l *EventLoop) onEvent(ctx context.Context, event discovery.Event) {
 
 	if event.Status {
 		// new/started container detected
-		logWriter, errWriter := l.WriterFactory(event.ContainerName, event.Group)
+		logWriter, errWriter, err := l.WriterFactory(event.ContainerName, event.Group)
+		if err != nil {
+			log.Printf("[WARN] ingore event %+v, %v", event, err)
+			return
+		}
+
 		ls := logger.LogStreamer{
 			DockerClient:  l.LogClient,
 			ContainerID:   event.ContainerID,

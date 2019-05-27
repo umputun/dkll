@@ -65,7 +65,7 @@ Help Options:
 ```
 
 - `mongo` address can be repeated multiple times or presented with `,` separator in environment
-- `mongo-passwd` is optional but highly recommended. If defined dkll server with authenticated as user `admin`
+- `mongo-passwd` is optional but highly recommended. If defined dkll server authenticates as user `admin`
 - if `backup` defined dkll server will make `host/container.log` files in `backup` directory
 - `merged` parameter produces a single `dkll.log` file with all received records.
 

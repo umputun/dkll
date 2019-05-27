@@ -119,7 +119,7 @@ func TestLastID(t *testing.T) {
 	assert.Equal(t, "5ce8718aef1d7346a5443a1f", id)
 
 	// second call will fail due to test setup
-	id, err = c.getLastID(context.Background())
+	_, err = c.getLastID(context.Background())
 	require.NotNil(t, err)
 }
 

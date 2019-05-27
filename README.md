@@ -3,11 +3,19 @@
 
 Logging server, agent and CLI client for dockerized infrastructure. 
 
+## Build from the source
+
+- clone this repo - `git clone https://github.com/umputun/dkll.git`
+- build the logger - `cd dkll && docker build -t umputun/dkll .`
+
+_alternatively use provided `Makefile`, i.e. `make test lint docker`_
+
+
 ## Server
 
-Server mode runs syslog server collecting records sent by [docker-logger collector](https://github.com/umputun/docker-logger). 
-All records parsed, analyzed and stored in mongodb (capped collection). Optionally, records can be sent to `<host>/<container>
-.log` files as well to merged `dkll.log` file.
+Server mode runs syslog server collecting records sent by dkll agent (see below). All records parsed, analyzed and stored
+in mongodb (capped collection). Optionally, records can be sent to `<host>/<container>.log` files as well as to merged `dkll.log`
+ file. All files rotated and compressed automatically.
 
 ### Usage
 
@@ -39,16 +47,22 @@ Help Options:
           --merged                       enable merged log file [$BACK_MRG]
 
     container:
-          --limit.container.max-size=    max log size, in megabytes (default: 100) [$MAX_SIZE]
+          --limit.container.max-size=    max log size, in megabytes (default: 100M) [$MAX_SIZE]
           --limit.container.max-backups= max number of rotated files (default: 10) [$MAX_BACKUPS]
-          --limit.container.max-age=     max age of rotated files (default: 30) [$MAX_AGE]
+          --limit.container.max-age=     max age of rotated files (default: 30 days) [$MAX_AGE]
 
     merged:
-          --limit.merged.max-size=       max log size, in megabytes (default: 100) [$MAX_SIZE]
+          --limit.merged.max-size=       max log size, in megabytes (default: 100M) [$MAX_SIZE]
           --limit.merged.max-backups=    max number of rotated files (default: 10) [$MAX_BACKUPS]
-          --limit.merged.max-age=        max age of rotated files (default: 30) [$MAX_AGE]
+          --limit.merged.max-age=        max age of rotated files (default: 30 days) [$MAX_AGE]
 ```
 
+- `mongo` address can be repeated multiple times or presented with `,` separator in environment
+- `mongo-passwd` is optional but highly recommended. If defined dkll server with authenticated as user `admin`
+- if `backup` defined dkll server will make `host/container.log` files in `backup` directory
+- `merged` parameter produces a single `dkll.log` file with all received records.
+
+Parameters can be set in `command` directive (see docker-compose.yml) or as environment vars. 
 
 ### API
 
@@ -91,29 +105,43 @@ backend by implementing 2 interfaces ([Publisher](https://github.com/umputun/dkl
 - `LastPublished() (entry core.LogEntry, err error)`
 - `Find(req core.Request) ([]core.LogEntry, error)`
 
+### Security and auth
+
+Both syslog and http don't restrict access. To allow some basic auth the simplest way is to run dkll server behind [nginx-le]
+(https://github.com/umputun/nginx-le) proxy with basic auth [configured on nginx level](https://docs.nginx
+.com/nginx/admin-guide/security-controls/configuring-http-basic-authentication/). To limit access to syslog port (514) firewall
+ (internal or external) cab be used.
+ 
+TODO: example
+ 
 
 ## Agent
 
-Agent container runs on each host and collects logs from all containers on the host. The logs sent to remote dkll server and 
-stored locally (optional).
+Agent container runs on each host and collects logs from all containers on the host. The logs sent to remote dkll server and/or 
+stored and rotated locally. The agent can intercept logs from containers configured with a logging driver that works with docker
+ logs (journald and json-file).  
 
 To deploy agent use provided `compose-agent.yml` 
 
-```
-      -d, --docker=        docker host (default: unix:///var/run/docker.sock) [$DOCKER_HOST]
-          --syslog         enable logging to syslog [$LOG_SYSLOG]
-          --syslog-host=   syslog host (default: 127.0.0.1:514) [$SYSLOG_HOST]
-          --syslog-prefix= syslog prefix (default: docker/) [$SYSLOG_PREFIX]
-          --files          enable logging to files [$LOG_FILES]
-          --max-size=      size of log triggering rotation (MB) (default: 10) [$MAX_SIZE]
-          --max-files=     number of rotated files to retain (default: 5) [$MAX_FILES]
-          --max-age=       maximum number of days to retain (default: 30) [$MAX_AGE]
-          --mix-err        send error to std output log file [$MIX_ERR]
-          --loc=           log files locations (default: logs) [$LOG_FILES_LOC]
-      -x, --exclude=       excluded container names [$EXCLUDE]
-      -i, --include=       included container names [$INCLUDE]
-      -j, --json           wrap message with JSON envelope [$JSON]
-```
+| Command line    | Environment   | Default                     | Description                                    |
+| --------------- | ------------- | --------------------------- | ---------------------------------------------- |
+| `--docker`      | `DOCKER_HOST` | unix:///var/run/docker.sock | docker host                                    |
+| `--syslog-host` | `SYSLOG_HOST` | 127.0.0.1:514               | syslog remote host (udp4)                      |
+| `--files`       | `LOG_FILES`   | No                          | enable logging to files                        |
+| `--syslog`      | `LOG_SYSLOG`  | No                          | enable logging to syslog                       |
+| `--max-size`    | `MAX_SIZE`    | 10                          | size of log triggering rotation (MB)           |
+| `--max-files`   | `MAX_FILES`   | 5                           | number of rotated files to retain              |
+| `--mix-err`     | `MIX_ERR`     | false                       | send error to std output log file
+| `--max-age`     | `MAX_AGE`     | 30                          | maximum number of days to retain               |
+| `--exclude`     | `EXCLUDE`     |                             | excluded container names, comma separated      |
+| `--include`     | `INCLUDE`     |                             | only included container names, comma separated |
+|                 | `TIME_ZONE`   | UTC                         | time zone for container                        |
+| `--json`, `-j`  | `JSON`        | false                       | output formatted as JSON                       |
+
+- at least one of destinations (`files` or `syslog`) should be allowed
+- location of log files can be mapped to host via `volume`, ex: `- ./logs:/srv/logs` (see `compose-agent.yml`)
+- both `--exclude` and `--include` flags are optional and mutually exclusive, i.e. if `--exclude` defined `--include` not allowed, and vise versa.
+
 
 ## Client
 

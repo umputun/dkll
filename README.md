@@ -81,6 +81,17 @@ type Request struct {
 }
 ```
 
+### Storage
+
+DKLL server uses mongo db to save and access records. It is possible and almost trivial to replace mongo with different 
+backend by implementing 2 interfaces ([Publisher](https://github.com/umputun/dkll/blob/master/app/server/forwarder.go#L22) and 
+[DataService](https://github.com/umputun/dkll/blob/master/app/server/rest_server.go#L28)) with just 3 functions:
+
+- `Publish(records []core.LogEntry) (err error)`
+- `LastPublished() (entry core.LogEntry, err error)`
+- `Find(req core.Request) ([]core.LogEntry, error)`
+
+
 ## Agent
 
 Agent container runs on each host and collects logs from all containers on the host. The logs sent to remote dkll server and 
@@ -110,8 +121,8 @@ Command line client accessing dkll server and printing the content.
 
 ### Usage
 
-DKLL client should be used directly as a compiled binary. You can get precompiled [release](https://github
-.com/umputun/dkll/releases) or build it from the source (`make deploy`). 
+DKLL client should be used directly as a compiled binary. You can get precompiled 
+[release](https://github.com/umputun/dkll/releases) or build it from the source (`make deploy`). 
 
 ```
 dkll [OPTIONS] client [client-OPTIONS]
@@ -142,3 +153,4 @@ Help Options:
 
 * containers (-c), hosts (-h) and exclusions (-x) can be repeated multiple times. 
 * both containers and hosts support regex inside "/", i.e. `/^something/`
+

@@ -108,7 +108,7 @@ func TestRest_streamCtrl(t *testing.T) {
 
 	data, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	assert.True(t, time.Since(st) >= time.Millisecond*600, "4 responses slowed by 100 and + 200ms timeout")
+	assert.True(t, time.Since(st) >= time.Millisecond*600, "4 responses slowed by 100 each and + 200ms timeout")
 	t.Logf("since=%v", time.Since(st))
 	t.Log(string(data))
 	recs := strings.Split(string(data), "\n")

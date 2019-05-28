@@ -37,7 +37,7 @@ func (s *RestServer) Run(ctx context.Context) error {
 	log.Printf("[INFO] activate rest server on :%d", s.Port)
 
 	if s.StreamDuration == 0 {
-		s.StreamDuration = time.Second // default duration for streaming mode. Defines how often it will repeat DataService.Find
+		s.StreamDuration = 250 * time.Millisecond // default duration for streaming mode. Defines how often it will repeat DataService.Find
 	}
 
 	router := s.router()

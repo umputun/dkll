@@ -35,12 +35,14 @@ type AgentOpts struct {
 	Excludes []string `short:"x" long:"exclude" env:"EXCLUDE" env-delim:"," description:"excluded container names"`
 	Includes []string `short:"i" long:"include" env:"INCLUDE" env-delim:"," description:"included container names"`
 	ExtJSON  bool     `short:"j" long:"json" env:"JSON" description:"wrap message with JSON envelope"`
+	DemoMode bool     `long:"demo" env:"DEMO" description:"demo mode, generates simulated log entries"`
 }
 
 // AgentCmd wraps agent mode
 type AgentCmd struct {
 	AgentOpts
 	Revision string
+	DemoMode bool
 }
 
 // Run agent app

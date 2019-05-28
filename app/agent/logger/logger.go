@@ -8,6 +8,7 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
+	"github.com/pkg/errors"
 )
 
 // LogClient wraps DockerClient with the minimal interface to fetch logs
@@ -17,15 +18,22 @@ type LogClient interface {
 
 // LogStreamer connects and activates container's log stream with io.Writer
 type LogStreamer struct {
+	*LogStreamerParams
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
+type LogStreamerParams struct {
 	DockerClient  LogClient
 	ContainerID   string
 	ContainerName string
 
 	LogWriter io.WriteCloser
 	ErrWriter io.WriteCloser
+}
 
-	ctx    context.Context
-	cancel context.CancelFunc
+func (l *LogStreamer) Init(params *LogStreamerParams) {
+	l.LogStreamerParams = params
 }
 
 // Go activates streamer
@@ -68,10 +76,26 @@ func (l *LogStreamer) Go(ctx context.Context) {
 }
 
 // Close kills streamer
-func (l *LogStreamer) Close() {
+func (l *LogStreamer) Close() (err error) {
 	l.cancel()
 	l.Wait()
+
+	if e := l.LogWriter.Close(); e != nil {
+		return errors.Wrap(e, "failed to close log file (out) writer")
+	}
+
+	if l.LogWriter != l.ErrWriter { // don't close err writer in mixed mode, closed already by LogWriter.Close()
+		if e := l.ErrWriter.Close(); e != nil {
+			return errors.Wrap(e, "failed to close log file (err) writer")
+		}
+	}
 	log.Printf("[DEBUG] close %s", l.ContainerID)
+	return nil
+}
+
+// Name of the streamed container
+func (l *LogStreamer) Name() string {
+	return l.ContainerName
 }
 
 // Wait for stream completion

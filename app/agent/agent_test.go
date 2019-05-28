@@ -9,6 +9,7 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/umputun/dkll/app/agent/logger"
 )
 
 func TestAgent(t *testing.T) {
@@ -18,6 +19,9 @@ func TestAgent(t *testing.T) {
 		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
 		},
+		StreamerFactory: func(params *logger.LogStreamerParams) LogStreamer {
+			return &logger.LogStreamer{}
+		},
 		Events:    newMockEventer(),
 		LogClient: &mockLogClient{},
 	}
@@ -25,8 +29,8 @@ func TestAgent(t *testing.T) {
 	time.AfterFunc(time.Millisecond*100, cancel)
 	el.Run(ctx)
 	assert.Equal(t, 2, len(el.logStreams), "2 streams in, 1 removed")
-	assert.Equal(t, "c2", el.logStreams["id2"].ContainerName)
-	assert.Equal(t, "c3", el.logStreams["id3"].ContainerName)
+	assert.Equal(t, "c2", el.logStreams["id2"].Name())
+	assert.Equal(t, "c3", el.logStreams["id3"].Name())
 }
 
 type mockLogClient struct {

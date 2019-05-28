@@ -26,6 +26,8 @@ type ServerOpts struct {
 	MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
 	MongoDB            string        `long:"mongo-db" env:"MONGO_DB" default:"dkll" description:"mongo database name"`
 	MongoColl          string        `long:"mongo-coll" env:"MONGO_COLL" default:"msgs" description:"mongo collection name"`
+	MongoMaxSize       int           `long:"mongo-size" env:"MONGO_SIZE" default:"10000000000" description:"max collection size"`
+	MongoMaxDocs       int           `long:"mongo-docs" env:"MONGO_DOCS" default:"50000000" description:"max docs in collection"`
 	FileBackupLocation string        `long:"backup" default:"" env:"BACK_LOG" description:"backup log files location"`
 	EnableMerged       bool          `long:"merged"  env:"BACK_MRG" description:"enable merged log file"`
 	LogLimits          struct {
@@ -68,7 +70,10 @@ func (s ServerCmd) Run(ctx context.Context) error {
 		dial.Username = "admin"
 		dial.Password = s.MongoPasswd
 	}
-	mg, err := server.NewMongo(dial, s.MongoDelay, s.MongoDB, s.MongoColl)
+
+	mgParams := server.MongoParams{DBName: s.MongoDB, Collection: s.MongoColl, Delay: s.MongoDelay,
+		MaxDocs: s.MongoMaxDocs, MaxCollectionSize: s.MongoMaxSize}
+	mg, err := server.NewMongo(dial, mgParams)
 	if err != nil {
 		return err
 	}

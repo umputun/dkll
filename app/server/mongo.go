@@ -17,11 +17,26 @@ import (
 // Mongo store provides all mongo-related ops
 type Mongo struct {
 	*mongo.Connection
+	MongoParams
+
 	lastPublished struct {
 		entry core.LogEntry
 		sync.Mutex
 	}
 }
+
+// MongoParams has all inputs (except dial info) needed to initialize mongo store
+type MongoParams struct {
+	MaxDocs            int
+	MaxCollectionSize  int
+	Delay              time.Duration
+	DBName, Collection string
+}
+
+const (
+	defMaxDocs           = 100000000               // 100 Millions
+	defMaxCollectionSize = 10 * 1024 * 1024 * 1024 // 10G
+)
 
 type mongoLogEntry struct {
 	ID        bson.ObjectId `bson:"_id,omitempty"`
@@ -34,14 +49,22 @@ type mongoLogEntry struct {
 }
 
 // NewMongo makes Mongo accessor
-func NewMongo(dial mgo.DialInfo, delay time.Duration, dbName, collection string) (res *Mongo, err error) {
-	log.Printf("[INFO] make new mongo server with dial=%+v, db=%s, delay=%v", dial, dbName, delay)
-	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(delay.Seconds()), ConsistencyMode: mgo.Monotonic})
+func NewMongo(dial mgo.DialInfo, params MongoParams) (res *Mongo, err error) {
+	log.Printf("[INFO] make new mongo server with dial=%+v, %+v", dial, params)
+	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(params.Delay.Seconds()), ConsistencyMode: mgo.Monotonic})
 	if err != nil {
 		return nil, err
 	}
-	res = &Mongo{Connection: mongo.NewConnection(mg, dbName, collection)}
-	if err := res.init(collection); err != nil {
+
+	if params.MaxCollectionSize == 0 {
+		params.MaxCollectionSize = defMaxCollectionSize
+	}
+	if params.MaxDocs == 0 {
+		params.MaxDocs = defMaxDocs
+	}
+
+	res = &Mongo{Connection: mongo.NewConnection(mg, params.DBName, params.Collection), MongoParams: params}
+	if err := res.init(params.Collection); err != nil {
 		return nil, err
 	}
 	return res, nil
@@ -166,9 +189,9 @@ func (m *Mongo) getBid(id string) bson.ObjectId {
 	return bid
 }
 
-// init collection, make/ensure indexes
+// init Collection, make/ensure indexes
 func (m *Mongo) init(collection string) error {
-	log.Printf("[INFO] create collection %s", collection)
+	log.Printf("[INFO] create Collection %s", collection)
 
 	indexes := []mgo.Index{
 		{Key: []string{"host", "container", "ts"}},
@@ -178,7 +201,7 @@ func (m *Mongo) init(collection string) error {
 
 	err := m.WithDB(func(dbase *mgo.Database) error {
 		coll := dbase.C(collection)
-		e := coll.Create(&mgo.CollectionInfo{ForceIdIndex: true, Capped: true, MaxBytes: 50000000000, MaxDocs: 500000000})
+		e := coll.Create(&mgo.CollectionInfo{ForceIdIndex: true, Capped: true, MaxBytes: m.MaxCollectionSize, MaxDocs: m.MaxDocs})
 		if e != nil {
 			return e
 		}

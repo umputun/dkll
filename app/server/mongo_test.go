@@ -103,7 +103,7 @@ func TestMongo_Find(t *testing.T) {
 }
 
 func TestMongo_Init(t *testing.T) {
-	m, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}}, 0, "test", "test_msgs")
+	m, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}}, MongoParams{DBName: "test", Collection: "test_msgs"})
 	require.NoError(t, err)
 	err = m.WithCollection(func(coll *mgo.Collection) error {
 		return coll.DropCollection()
@@ -112,7 +112,8 @@ func TestMongo_Init(t *testing.T) {
 }
 
 func TestMongo_InitFailed(t *testing.T) {
-	_, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.2:27017"}, Timeout: 100 * time.Millisecond}, 0, "test", "test_msgs")
+	_, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.2:27017"}, Timeout: 100 * time.Millisecond},
+		MongoParams{DBName: "test", Collection: "test_msgs"})
 	require.NotNil(t, err)
 }
 

@@ -17,7 +17,7 @@ type MultiWriter struct {
 	hostname  string
 	container string
 	group     string
-	isJSON    bool
+	isJSON    bool // format message to json
 }
 
 // jMsg is envelope for ExtJSON mode
@@ -43,11 +43,12 @@ func (w *MultiWriter) WithExtJSON(containerName, group string) *MultiWriter {
 	w.group = group
 	w.isJSON = true
 
-	hostname := "unknown"
-	if h, err := os.Hostname(); err == nil {
-		hostname = h
+	if w.hostname == "" {
+		w.hostname = "unknown"
+		if h, err := os.Hostname(); err == nil {
+			w.hostname = h
+		}
 	}
-	w.hostname = hostname
 	return w
 }
 

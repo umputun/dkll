@@ -29,7 +29,8 @@ type Eventer interface {
 	Channel() <-chan Event
 }
 
-// Run blocking even loop. Receives events from Eventer and makes new log streams. Also deregister terminated streams.
+// Run blocking even loop. Receives events from Eventer and makes new log streams.
+// Also deregister terminated streams.
 func (l *EventLoop) Run(ctx context.Context) {
 	l.logStreams = map[string]logger.LogStreamer{}
 
@@ -52,6 +53,7 @@ func (l *EventLoop) Run(ctx context.Context) {
 
 }
 
+// onEvent dispatches add/remove container events from docker
 func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 
 	if event.Status {

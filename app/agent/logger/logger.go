@@ -70,7 +70,6 @@ func (l *LogStreamer) Go(ctx context.Context) {
 // Close kills streamer
 func (l *LogStreamer) Close() {
 	l.cancel()
-	l.Wait()
 	log.Printf("[DEBUG] close %s", l.ContainerID)
 }
 

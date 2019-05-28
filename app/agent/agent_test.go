@@ -9,8 +9,6 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/umputun/dkll/app/agent/discovery"
 )
 
 func TestAgent(t *testing.T) {
@@ -45,17 +43,17 @@ type mockWriter struct {
 func (m *mockWriter) Close() error { return nil }
 
 type mockEventer struct {
-	ch chan discovery.Event
+	ch chan Event
 }
 
 func newMockEventer() *mockEventer {
-	ch := make(chan discovery.Event, 10)
-	ch <- discovery.Event{Status: true, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
-	ch <- discovery.Event{Status: true, ContainerName: "c2", Group: "g1", ContainerID: "id2"}
-	ch <- discovery.Event{Status: true, ContainerName: "c3", Group: "g2", ContainerID: "id3"}
-	ch <- discovery.Event{Status: false, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
+	ch := make(chan Event, 10)
+	ch <- Event{Status: true, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
+	ch <- Event{Status: true, ContainerName: "c2", Group: "g1", ContainerID: "id2"}
+	ch <- Event{Status: true, ContainerName: "c3", Group: "g2", ContainerID: "id3"}
+	ch <- Event{Status: false, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
 	close(ch)
 	return &mockEventer{ch: ch}
 }
 
-func (m *mockEventer) Channel() <-chan discovery.Event { return m.ch }
+func (m *mockEventer) Channel() <-chan Event { return m.ch }

@@ -13,7 +13,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/umputun/dkll/app/agent"
-	"github.com/umputun/dkll/app/agent/discovery"
 	"github.com/umputun/dkll/app/agent/logger"
 	"github.com/umputun/dkll/app/agent/syslog"
 )
@@ -61,7 +60,7 @@ func (a AgentCmd) Run(ctx context.Context) error {
 		return errors.Wrapf(err, "failed to make docker client %s", err)
 	}
 
-	events, err := discovery.NewEventNotif(client, a.Excludes, a.Includes)
+	events, err := agent.NewEventNotif(client, a.Excludes, a.Includes)
 	if err != nil {
 		return errors.Wrap(err, "failed to make event notifier")
 	}

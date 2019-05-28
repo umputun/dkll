@@ -7,7 +7,6 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 
-	"github.com/umputun/dkll/app/agent/discovery"
 	"github.com/umputun/dkll/app/agent/logger"
 )
 
@@ -27,7 +26,7 @@ type LogClient interface {
 
 // Eventer returns chan with events
 type Eventer interface {
-	Channel() <-chan discovery.Event
+	Channel() <-chan Event
 }
 
 // Run blocking even loop. Receives events from Eventer and makes new log streams. Also deregister terminated streams.
@@ -53,7 +52,7 @@ func (l *EventLoop) Run(ctx context.Context) {
 
 }
 
-func (l *EventLoop) onEvent(ctx context.Context, event discovery.Event) {
+func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 
 	if event.Status {
 		// new/started container detected

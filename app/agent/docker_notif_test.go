@@ -14,7 +14,7 @@ import (
 func TestEvents(t *testing.T) {
 
 	client := &mockDockerClient{}
-	events, err := NewEventNotif(client, []string{"tst_exclude"}, []string{})
+	events, err := NewEventNotifier(client, []string{"tst_exclude"}, []string{})
 	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond)
 	go client.add("id1", "name1")
@@ -31,7 +31,7 @@ func TestEvents(t *testing.T) {
 
 func TestEventsIncludes(t *testing.T) {
 	client := &mockDockerClient{}
-	events, err := NewEventNotif(client, []string{}, []string{"tst_included"})
+	events, err := NewEventNotifier(client, []string{}, []string{"tst_included"})
 	require.NoError(t, err)
 	time.Sleep(10 * time.Millisecond)
 	go client.add("id2", "tst_included")
@@ -54,7 +54,7 @@ func TestEmit(t *testing.T) {
 	client.add("id2", "tst_exclude")
 	client.add("id2", "name2")
 
-	events, err := NewEventNotif(client, []string{"tst_exclude"}, []string{})
+	events, err := NewEventNotifier(client, []string{"tst_exclude"}, []string{})
 	require.NoError(t, err)
 
 	ev := <-events.Channel()
@@ -74,7 +74,7 @@ func TestEmitIncludes(t *testing.T) {
 	client.add("id2", "tst_include")
 	client.add("id2", "name2")
 
-	events, err := NewEventNotif(client, []string{}, []string{"tst_include"})
+	events, err := NewEventNotifier(client, []string{}, []string{"tst_include"})
 	require.NoError(t, err)
 
 	ev := <-events.Channel()
@@ -85,13 +85,13 @@ func TestEmitIncludes(t *testing.T) {
 func TestNewEventNotifWithNils(t *testing.T) {
 	client := &mockDockerClient{}
 
-	_, err := NewEventNotif(client, nil, nil)
+	_, err := NewEventNotifier(client, nil, nil)
 	require.NoError(t, err)
 }
 
 func TestIsAllowedExclude(t *testing.T) {
 	client := &mockDockerClient{}
-	events, err := NewEventNotif(client, []string{"tst_exclude"}, nil)
+	events, err := NewEventNotifier(client, []string{"tst_exclude"}, nil)
 	require.NoError(t, err)
 
 	assert.True(t, events.isAllowed("name1"))
@@ -100,7 +100,7 @@ func TestIsAllowedExclude(t *testing.T) {
 
 func TestIsAllowedInclude(t *testing.T) {
 	client := &mockDockerClient{}
-	events, err := NewEventNotif(client, nil, []string{"tst_include"})
+	events, err := NewEventNotifier(client, nil, []string{"tst_include"})
 	require.NoError(t, err)
 
 	assert.True(t, events.isAllowed("tst_include"))
@@ -110,7 +110,7 @@ func TestIsAllowedInclude(t *testing.T) {
 
 func TestGroup(t *testing.T) {
 
-	d := EventNotif{}
+	d := EventNotifier{}
 	tbl := []struct {
 		inp string
 		out string

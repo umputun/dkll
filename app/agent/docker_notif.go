@@ -10,8 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// EventNotif emits all changes from all containers states
-type EventNotif struct {
+// EventNotifier emits all changes from all containers states
+type EventNotifier struct {
 	dockerClient DockerClient
 	excludes     []string
 	includes     []string
@@ -35,10 +35,10 @@ type DockerClient interface {
 
 var reGroup = regexp.MustCompile(`/(.*?)/`)
 
-// NewEventNotif makes EventNotif publishing all changes to eventsCh
-func NewEventNotif(dockerClient DockerClient, excludes, includes []string) (*EventNotif, error) {
+// NewEventNotifier makes EventNotifier publishing all changes to eventsCh
+func NewEventNotifier(dockerClient DockerClient, excludes, includes []string) (*EventNotifier, error) {
 	log.Printf("[DEBUG] create events notif, excludes: %+v, includes: %+v", excludes, includes)
-	res := EventNotif{
+	res := EventNotifier{
 		dockerClient: dockerClient,
 		excludes:     excludes,
 		includes:     includes,
@@ -58,13 +58,13 @@ func NewEventNotif(dockerClient DockerClient, excludes, includes []string) (*Eve
 }
 
 // Channel gets eventsCh with all containers events
-func (e *EventNotif) Channel() (res <-chan Event) {
+func (e *EventNotifier) Channel() (res <-chan Event) {
 	return e.eventsCh
 }
 
 // activate starts blocking listener for all docker events
 // filters everything except "container" type, detects stop/start events and publishes to eventsCh
-func (e *EventNotif) activate(client DockerClient) {
+func (e *EventNotifier) activate(client DockerClient) {
 	dockerEventsCh := make(chan *docker.APIEvents)
 	if err := client.AddEventListener(dockerEventsCh); err != nil {
 		log.Fatalf("[ERROR] can't add even listener, %v", err)
@@ -104,7 +104,7 @@ func (e *EventNotif) activate(client DockerClient) {
 }
 
 // emitRunningContainers gets all currently running containers and publishes them as "Status=true" (started) events
-func (e *EventNotif) emitRunningContainers() error {
+func (e *EventNotifier) emitRunningContainers() error {
 
 	containers, err := e.dockerClient.ListContainers(docker.ListContainersOptions{All: false})
 	if err != nil {
@@ -132,7 +132,7 @@ func (e *EventNotif) emitRunningContainers() error {
 	return nil
 }
 
-func (e *EventNotif) group(image string) string {
+func (e *EventNotifier) group(image string) string {
 	if r := reGroup.FindStringSubmatch(image); len(r) == 2 {
 		return r[1]
 	}
@@ -140,7 +140,7 @@ func (e *EventNotif) group(image string) string {
 	return ""
 }
 
-func (e *EventNotif) isAllowed(containerName string) bool {
+func (e *EventNotifier) isAllowed(containerName string) bool {
 	if len(e.includes) > 0 {
 		return contains(containerName, e.includes)
 	}

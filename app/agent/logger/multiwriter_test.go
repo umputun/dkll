@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -55,8 +56,24 @@ func TestMultiWriter_extJSON(t *testing.T) {
 	assert.True(t, time.Since(j.TS).Seconds() < 1)
 }
 
-type wrMock struct {
-	bytes.Buffer
+func TestMultiWriter_Close(t *testing.T) {
+	w1, w2 := wrMock{}, wrMock{failOnClose: true}
+	writer := NewMultiWriterIgnoreErrors(&w1, &w2)
+	assert.EqualError(t, writer.Close(), "1 error occurred:\n\t* close failed\n\n")
+
+	w1, w2 = wrMock{}, wrMock{}
+	writer = NewMultiWriterIgnoreErrors(&w1, &w2)
+	assert.NoError(t, writer.Close())
 }
 
-func (m *wrMock) Close() error { return nil }
+type wrMock struct {
+	bytes.Buffer
+	failOnClose bool
+}
+
+func (m *wrMock) Close() error {
+	if m.failOnClose {
+		return errors.New("close failed")
+	}
+	return nil
+}

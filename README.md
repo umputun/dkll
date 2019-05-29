@@ -162,12 +162,19 @@ Help Options:
       -x, --exclude=       excluded container names [$EXCLUDE]
       -i, --include=       included container names [$INCLUDE]
       -j, --json           wrap message with JSON envelope [$JSON]
+          --demo           demo mode, generates simulated log entries [$DEMO]
+          --demo-every=    demo interval (default: 3s) [$DEMO_EVERY]
+      
 ```
 
 - at least one of destinations (`files` or `syslog`) should be allowed
 - location of log files can be mapped to host via `volume`, ex: `- ./logs:/srv/logs` (see `compose-agent.yml`)
 - both `--exclude` and `--include` flags are optional and mutually exclusive, i.e. if `--exclude` defined `--include` not allowed, and vise versa.
 
+
+#### Demo mode
+
+Defining `--demo` or `$DEMO` switches agent to demo mode emitting fake log messages from fake containers. Everything preconfigured in `compose-demo.yml` and can be activated with `docker-compose -f compose-demo.yml up`.  
 
 ## Client
 

@@ -40,7 +40,7 @@ type ServerOpts struct {
 type LogLimit struct {
 	MaxSize    int `long:"max-size" env:"MAX_SIZE" default:"100" description:"max log size, in megabytes"`
 	MaxBackups int `long:"max-backups" env:"MAX_BACKUPS" default:"10" description:"max number of rotated files"`
-	MaxAge     int `long:"max-age" env:"MAX_AGE" default:"30" description:"max age of rotated files"`
+	MaxAge     int `long:"max-age" env:"MAX_AGE" default:"30" description:"max age of rotated files, days"`
 }
 
 // ServerCmd wraps server mode

@@ -21,13 +21,14 @@ type EventLoop struct {
 	logStreams map[string]LogStreamer // keep streams per containerID
 }
 
+// LogStreamer defines runnable interface created on event
 type LogStreamer interface {
 	Run() error
 	Close() error
 	Name() string
 }
 
-// LogsEmitter wraps DockerClient with the minimal interface
+// LogEmitter wraps DockerClient with the minimal interface
 type LogEmitter interface {
 	Logs(opts docker.LogsOptions) error
 }

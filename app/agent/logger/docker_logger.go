@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LogStreamer connects and activates container's log stream with io.Writer
+// DockerLogStreamer connects and activates container's log stream with io.Writer
 type DockerLogStreamer struct {
 	params LogStreamerParams
 
@@ -20,6 +20,7 @@ type DockerLogStreamer struct {
 	done   chan struct{}
 }
 
+// LogStreamerParams defines everything used to construct container's log streamer
 type LogStreamerParams struct {
 	ID          string
 	Name        string
@@ -33,6 +34,7 @@ type LogsEmitter interface {
 	Logs(docker.LogsOptions) error // runs endless loop publishing logs to writers from LogsOptions
 }
 
+// Init makes the functional DockerLogStreamer from an empty one created by factory
 func (l *DockerLogStreamer) Init(params LogStreamerParams) {
 	log.Printf("[DEBUG] initialize DockerLogStreamer with %+v", params)
 	l.params = params

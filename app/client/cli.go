@@ -68,6 +68,7 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 }
 
 // Activate shows tail-like, colorized output. For FollowMode will run endless loop
+// doesn't return error on context cancellation, but return.
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
 	var items []core.LogEntry
@@ -76,6 +77,9 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 	if c.TailMode {
 		id, err = c.getLastID(ctx)
 		if err != nil {
+			if err == context.Canceled {
+				return request, nil
+			}
 			return request, errors.Wrapf(err, "can't get last ID for tail mode")
 		}
 		request.LastID = id
@@ -84,7 +88,10 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 	for {
 		items, id, err = c.getNext(ctx, request)
 		if err != nil {
-			return request, err
+			if err == context.Canceled {
+				return request, nil
+			}
+			return request, errors.Wrapf(err, "can't get data for request %+v", request)
 		}
 
 		if len(items) == 0 && !c.FollowMode {
@@ -105,7 +112,8 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 
 		select {
 		case <-ctx.Done():
-			return request, ctx.Err()
+			log.Printf("[DEBUG] terminated, %v", ctx.Err())
+			return request, nil // don't return error, we don't want error status on ctrl-c in the client
 		case <-time.After(c.UpdateInterval):
 			continue
 		}

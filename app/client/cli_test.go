@@ -214,7 +214,7 @@ func TestCliFindFollow(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(time.Millisecond*500, cancel)
 	_, err := c.Activate(ctx, core.Request{})
-	assert.EqualError(t, err, "context canceled")
+	assert.NoError(t, err)
 	assert.Equal(t, "h1:c1 - msg0\nh1:c1 - msg1\nh1:c1 - msg2\nh1:c1 - msg3\nh1:c1 - msg4\nh1:c1 - msg5\n", out.String())
 	assert.Equal(t, int64(6), atomic.LoadInt64(&count), "called 6 times by repeater")
 }

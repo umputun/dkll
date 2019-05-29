@@ -1,0 +1,71 @@
+version: '2'
+
+services:
+  dkll-server:
+    build: .
+    image: umputun/dkll
+    container_name: "dkll-server"
+    hostname: "dkll-server"
+    restart: always
+
+    logging: &default_logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    environment:
+      - MONGO=mongo-dkll
+      - MONGO_DELAY=10s
+      - BACK_LOG=/srv/logs
+      - MONGO_PASSWD=${MONGO_PASSWD}
+      - DEBUG=true
+    ports:
+      - 80:8080
+      - 514:5514
+
+    volumes:
+      - ./var/logs:/srv/logs
+
+    command: ["/srv/dkll", "server"]
+
+  dkll-agent:
+    image: umputun/dkll
+    container_name: "dkll-agent"
+    hostname: "dkll-agent"
+    restart: always
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    environment:
+      - LOG_FILES=true
+      - LOG_SYSLOG=true
+      - SYSLOG_HOST=dkll-server:514
+      - EXCLUDE=dkll-agent,dkll-server,dkll-mongo
+      - DEBUG=true
+      - DEMO=true
+      - TIME_ZONE=America/Chicago
+
+    volumes:
+      - ./logs:/srv/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    command: ["/srv/dkll", "agent"]
+
+  mongo-dkll:
+    image: mongo
+    hostname: mongo-dkll
+    restart: always
+    logging: *default_logging
+    volumes:
+      - ./var/mongo:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWD}
+    ports:
+      - "27017:27017"
+    command: --smallfiles

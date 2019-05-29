@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
@@ -32,9 +33,11 @@ type AgentOpts struct {
 	MixErr        bool   `long:"mix-err" env:"MIX_ERR" description:"send error to std output log file"`
 	FilesLocation string `long:"loc" env:"LOG_FILES_LOC" default:"logs" description:"log files locations"`
 
-	Excludes []string `short:"x" long:"exclude" env:"EXCLUDE" env-delim:"," description:"excluded container names"`
-	Includes []string `short:"i" long:"include" env:"INCLUDE" env-delim:"," description:"included container names"`
-	ExtJSON  bool     `short:"j" long:"json" env:"JSON" description:"wrap message with JSON envelope"`
+	Excludes     []string      `short:"x" long:"exclude" env:"EXCLUDE" env-delim:"," description:"excluded container names"`
+	Includes     []string      `short:"i" long:"include" env:"INCLUDE" env-delim:"," description:"included container names"`
+	ExtJSON      bool          `short:"j" long:"json" env:"JSON" description:"wrap message with JSON envelope"`
+	DemoMode     bool          `long:"demo" env:"DEMO" description:"demo mode, generates simulated log entries"`
+	DemoRecEvery time.Duration `long:"demo-every" env:"DEMO_EVERY" default:"3s" description:"demo interval"`
 }
 
 // AgentCmd wraps agent mode
@@ -55,25 +58,47 @@ func (a AgentCmd) Run(ctx context.Context) error {
 		return errors.New("syslog is not supported on this OS")
 	}
 
-	client, err := docker.NewClient(a.DockerHost)
-	if err != nil {
-		return errors.Wrapf(err, "failed to make docker client %s", err)
+	if a.DemoMode {
+		log.Printf("[WARN] running agent in demo mode")
 	}
 
-	events, err := agent.NewEventNotifier(client, a.Excludes, a.Includes)
+	loop, err := a.makeEventLoop(ctx)
 	if err != nil {
-		return errors.Wrap(err, "failed to make event notifier")
-	}
-
-	loop := agent.EventLoop{
-		LogClient:     client,
-		MixOuts:       a.MixErr,
-		WriterFactory: a.makeLogWriters,
-		Events:        events,
+		return errors.Wrap(err, "failed to make event loop")
 	}
 
 	loop.Run(ctx)
 	return nil
+}
+
+func (a AgentCmd) makeEventLoop(ctx context.Context) (agent.EventLoop, error) {
+
+	if a.DemoMode {
+		loop := agent.EventLoop{
+			LogEmitter:    &logger.DemoEmitter{Duration: a.DemoRecEvery},
+			MixOuts:       a.MixErr,
+			WriterFactory: a.makeLogWriters,
+			Events:        agent.NewDemoEventNotifier(ctx),
+		}
+		return loop, nil
+	}
+
+	client, err := docker.NewClient(a.DockerHost)
+	if err != nil {
+		return agent.EventLoop{}, errors.Wrapf(err, "failed to make docker client %s", err)
+	}
+
+	events, err := agent.NewEventNotifier(client, a.Excludes, a.Includes)
+	if err != nil {
+		return agent.EventLoop{}, errors.Wrap(err, "failed to make event notifier")
+	}
+
+	return agent.EventLoop{
+		LogEmitter:    client,
+		MixOuts:       a.MixErr,
+		WriterFactory: a.makeLogWriters,
+		Events:        events,
+	}, nil
 }
 
 // makeLogWriters creates io.Writer with rotated out and separate err files. Also adds writer for remote syslog

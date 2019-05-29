@@ -3,9 +3,9 @@ package agent
 import (
 	"context"
 	"io"
-	"log"
 
 	docker "github.com/fsouza/go-dockerclient"
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/agent/logger"
 )
@@ -14,13 +14,21 @@ import (
 type EventLoop struct {
 	MixOuts       bool
 	WriterFactory func(ctx context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error)
-	LogClient     LogClient
-	Events        Eventer
-	logStreams    map[string]logger.LogStreamer // keep streams per containerID
+
+	LogEmitter LogEmitter
+	Events     Eventer
+	logStreams map[string]LogStreamer // keep streams per containerID
 }
 
-// LogClient wraps DockerClient with the minimal interface
-type LogClient interface {
+// LogStreamer defines runnable interface created on event
+type LogStreamer interface {
+	Run() error
+	Close() error
+	Name() string
+}
+
+// LogEmitter wraps DockerClient with the minimal interface
+type LogEmitter interface {
 	Logs(opts docker.LogsOptions) error
 }
 
@@ -32,15 +40,18 @@ type Eventer interface {
 // Run blocking even loop. Receives events from Eventer and makes new log streams.
 // Also deregister terminated streams.
 func (l *EventLoop) Run(ctx context.Context) {
-	l.logStreams = map[string]logger.LogStreamer{}
+	l.logStreams = map[string]LogStreamer{}
 
 	for {
 		select {
 		case <-ctx.Done():
 			log.Print("[WARN] event loop terminated")
 			for _, v := range l.logStreams {
-				v.Close()
-				log.Printf("[INFO] close logger stream for %s", v.ContainerName)
+				if err := v.Close(); err != nil {
+					log.Printf("[WARN] failed to close %s, %v", v.Name(), err)
+					continue
+				}
+				log.Printf("[INFO] close logger stream for %s", v.Name())
 			}
 			return
 		case event, ok := <-l.Events.Channel():
@@ -50,7 +61,6 @@ func (l *EventLoop) Run(ctx context.Context) {
 			}
 		}
 	}
-
 }
 
 // onEvent dispatches add/remove container events from docker
@@ -64,14 +74,21 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 			return
 		}
 
-		ls := logger.LogStreamer{
-			DockerClient:  l.LogClient,
-			ContainerID:   event.ContainerID,
-			ContainerName: event.ContainerName,
-			LogWriter:     logWriter,
-			ErrWriter:     errWriter,
-		}
-		ls.Go(ctx) // activate log stream, stream log content to ls.LogWriter and ls.ErrWriter
+		ls := logger.NewContainerLogStreamer(logger.ContainerStreamerParams{
+			LogsEmitter: l.LogEmitter,
+			ID:          event.ContainerID,
+			Name:        event.ContainerName,
+			LogWriter:   logWriter,
+			ErrWriter:   errWriter,
+		})
+
+		// activate log stream, stream log content to ls.LogWriter and ls.ErrWriter
+		go func() {
+			if e := ls.Run(); e != nil {
+				log.Printf("[WARN] streamer terminated for %s, %v", ls.Name(), e)
+			}
+		}()
+
 		l.logStreams[event.ContainerID] = ls
 		log.Printf("[DEBUG] streaming for %d containers", len(l.logStreams))
 		return
@@ -84,18 +101,12 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 		return
 	}
 
+	// close stream and log files
 	log.Printf("[DEBUG] close loggers for %+v", event)
-	ls.Close()
-
-	if e := ls.LogWriter.Close(); e != nil {
-		log.Printf("[WARN] failed to close log writer for %+v, %s", event, e)
-	}
-
-	if !l.MixOuts { // don't close err writer in mixed mode, closed already by LogWriter.Close()
-		if e := ls.ErrWriter.Close(); e != nil {
-			log.Printf("[WARN] failed to close err writer for %+v, %s", event, e)
-		}
+	if e := ls.Close(); e != nil {
+		log.Printf("[WARN] close error for %s, %v", event.ContainerName, e)
 	}
 	delete(l.logStreams, event.ContainerID)
+
 	log.Printf("[DEBUG] streaming for %d containers", len(l.logStreams))
 }

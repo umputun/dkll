@@ -71,26 +71,19 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 // doesn't return error on context cancellation, but return.
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
-	resetCtxError := func(err error) error {
-		if err == context.Canceled {
-			return nil
-		}
-		return err
-	}
-
 	var items []core.LogEntry
 	var id string
 
 	if c.TailMode {
 		if id, err = c.getLastID(ctx); err != nil {
-			return request, errors.Wrapf(resetCtxError(err), "can't get last ID for tail mode")
+			return request, errors.Wrapf(c.resetCtxError(err), "can't get last ID for tail mode")
 		}
 		request.LastID = id
 	}
 
 	for {
 		if items, id, err = c.getNext(ctx, request); err != nil {
-			return request, errors.Wrapf(resetCtxError(err), "can't get data for request %+v", request)
+			return request, errors.Wrapf(c.resetCtxError(err), "can't get data for request %+v", request)
 		}
 
 		if len(items) == 0 && !c.FollowMode {
@@ -119,6 +112,13 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 	}
 
 	return request, nil
+}
+
+func (c *CLI) resetCtxError(err error) error {
+	if err == context.Canceled {
+		return nil
+	}
+	return err
 }
 
 func (c *CLI) makeOutLine(e core.LogEntry) (string, bool) {

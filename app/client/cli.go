@@ -71,28 +71,26 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 // doesn't return error on context cancellation, but return.
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
+	resetCtxError := func(err error) error {
+		if err == context.Canceled {
+			return nil
+		}
+		return err
+	}
+
 	var items []core.LogEntry
 	var id string
 
 	if c.TailMode {
-		id, err = c.getLastID(ctx)
-		if err != nil && err == context.Canceled {
-			return request, nil
-		}
-		if err != nil {
-			return request, errors.Wrapf(err, "can't get last ID for tail mode")
+		if id, err = c.getLastID(ctx); err != nil {
+			return request, errors.Wrapf(resetCtxError(err), "can't get last ID for tail mode")
 		}
 		request.LastID = id
 	}
 
 	for {
-		items, id, err = c.getNext(ctx, request)
-
-		if err != nil && err == context.Canceled {
-			return request, nil
-		}
-		if err != nil {
-			return request, errors.Wrapf(err, "can't get data for request %+v", request)
+		if items, id, err = c.getNext(ctx, request); err != nil {
+			return request, errors.Wrapf(resetCtxError(err), "can't get data for request %+v", request)
 		}
 
 		if len(items) == 0 && !c.FollowMode {
@@ -147,7 +145,7 @@ func (c *CLI) getLastID(ctx context.Context) (string, error) {
 	err := repeater.New(c.RepeaterStrategy).Do(ctx, func() (e error) {
 		resp, e := c.Client.Get(fmt.Sprintf("%s/last", c.API))
 		if e != nil {
-			return e
+			return errors.Wrapf(e, "can't get last id")
 		}
 		defer func() { _ = resp.Body.Close() }() // nolint
 		if resp.StatusCode != http.StatusOK {

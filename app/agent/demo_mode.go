@@ -1,6 +1,7 @@
-package logger
+package agent
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -39,6 +40,35 @@ func (d *DemoEmitter) Logs(o docker.LogsOptions) error {
 			n++
 		}
 	}
+}
+
+// DemoEventNotifier is a fake/replacement for docker notifier
+type DemoEventNotifier struct {
+	ch chan Event
+}
+
+// NewDemoEventNotifier makes notifier emitting 3 events
+func NewDemoEventNotifier(ctx context.Context) *DemoEventNotifier {
+	ch := make(chan Event, 3)
+	res := &DemoEventNotifier{
+		ch: ch,
+	}
+
+	go func(ch chan Event) {
+		<-ctx.Done()
+		close(ch)
+	}(ch)
+
+	ch <- Event{Status: true, ContainerName: "nginx", ContainerID: "nginx", Group: "system", TS: time.Now()}
+	ch <- Event{Status: true, ContainerName: "mongo", ContainerID: "mongo", Group: "db", TS: time.Now()}
+	ch <- Event{Status: true, ContainerName: "rest", ContainerID: "rest", Group: "app", TS: time.Now()}
+
+	return res
+}
+
+// Channel gets eventsCh with all containers events
+func (e *DemoEventNotifier) Channel() (res <-chan Event) {
+	return e.ch
 }
 
 var nginxDemo = []string{

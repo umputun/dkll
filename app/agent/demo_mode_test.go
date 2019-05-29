@@ -1,4 +1,4 @@
-package logger
+package agent
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 
 func TestDemoEmitter_Logs(t *testing.T) {
 	d := DemoEmitter{time.Millisecond * 100}
-	wr := mockWriter{}
+	wr := mockDemoWriter{}
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(time.Millisecond*1090, cancel)
 	err := d.Logs(docker.LogsOptions{Context: ctx, OutputStream: &wr})
@@ -23,18 +23,18 @@ func TestDemoEmitter_Logs(t *testing.T) {
 	assert.Equal(t, 10+1, len(wr.Get()), "10 messages with extra \n")
 }
 
-type mockWriter struct {
+type mockDemoWriter struct {
 	sync.Mutex
 	bytes.Buffer
 }
 
-func (m *mockWriter) Write(p []byte) (int, error) {
+func (m *mockDemoWriter) Write(p []byte) (int, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.Buffer.Write(p)
 }
 
-func (m *mockWriter) Get() []string {
+func (m *mockDemoWriter) Get() []string {
 	m.Lock()
 	res := string(m.Buffer.Bytes())
 	m.Unlock()

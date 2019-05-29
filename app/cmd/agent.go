@@ -14,7 +14,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/umputun/dkll/app/agent"
-	"github.com/umputun/dkll/app/agent/logger"
 	"github.com/umputun/dkll/app/agent/syslog"
 )
 
@@ -75,7 +74,7 @@ func (a AgentCmd) makeEventLoop(ctx context.Context) (agent.EventLoop, error) {
 
 	if a.DemoMode {
 		loop := agent.EventLoop{
-			LogEmitter:    &logger.DemoEmitter{Duration: a.DemoRecEvery},
+			LogEmitter:    &agent.DemoEmitter{Duration: a.DemoRecEvery},
 			MixOuts:       a.MixErr,
 			WriterFactory: a.makeLogWriters,
 			Events:        agent.NewDemoEventNotifier(ctx),
@@ -135,8 +134,8 @@ func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group strin
 		}
 	}
 
-	lw := logger.NewMultiWriterIgnoreErrors(logWriters...)
-	ew := logger.NewMultiWriterIgnoreErrors(errWriters...)
+	lw := agent.NewMultiWriterIgnoreErrors(logWriters...)
+	ew := agent.NewMultiWriterIgnoreErrors(errWriters...)
 	if a.ExtJSON {
 		lw = lw.WithExtJSON(containerName, group)
 		ew = ew.WithExtJSON(containerName, group)

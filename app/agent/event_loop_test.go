@@ -11,8 +11,6 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/umputun/dkll/app/agent/logger"
 )
 
 func TestAgent(t *testing.T) {
@@ -42,7 +40,7 @@ func TestDemo(t *testing.T) {
 			return &lwr, &ewr, nil
 		},
 		Events:     NewDemoEventNotifier(ctx),
-		LogEmitter: &logger.DemoEmitter{Duration: 100 * time.Millisecond},
+		LogEmitter: &DemoEmitter{Duration: 100 * time.Millisecond},
 	}
 	time.AfterFunc(time.Millisecond*1000, cancel)
 	el.Run(ctx)

@@ -6,8 +6,6 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
-
-	"github.com/umputun/dkll/app/agent/logger"
 )
 
 // EventLoop reacts on messages from Events, adds+activate LogStreamer as well as stop+remove them.
@@ -74,7 +72,7 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 			return
 		}
 
-		ls := logger.NewContainerLogStreamer(logger.ContainerStreamerParams{
+		ls := NewContainerLogStreamer(ContainerStreamerParams{
 			LogsEmitter: l.LogEmitter,
 			ID:          event.ContainerID,
 			Name:        event.ContainerName,

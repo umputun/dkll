@@ -11,17 +11,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-// DockerLogStreamer connects and activates container's log stream with io.Writer
-type DockerLogStreamer struct {
-	params LogStreamerParams
+// ContainerLogStreamer connects and activates container's log stream with io.Writer
+type ContainerLogStreamer struct {
+	params ContainerStreamerParams
 
 	ctx    context.Context
 	cancel func()
 	done   chan struct{}
 }
 
-// LogStreamerParams defines everything used to construct container's log streamer
-type LogStreamerParams struct {
+// ContainerStreamerParams defines everything used to construct container's log streamer
+type ContainerStreamerParams struct {
 	ID          string
 	Name        string
 	LogWriter   io.WriteCloser
@@ -34,16 +34,21 @@ type LogsEmitter interface {
 	Logs(docker.LogsOptions) error // runs endless loop publishing logs to writers from LogsOptions
 }
 
-// Init makes the functional DockerLogStreamer from an empty one created by factory
-func (l *DockerLogStreamer) Init(params LogStreamerParams) {
-	log.Printf("[DEBUG] initialize DockerLogStreamer with %+v", params)
-	l.params = params
-	l.done = make(chan struct{})
-	l.ctx, l.cancel = context.WithCancel(context.Background())
+// NewContainerLogStreamer makes log streamer for given container with writers and log emitter
+func NewContainerLogStreamer(params ContainerStreamerParams) *ContainerLogStreamer {
+	log.Printf("[DEBUG] initialize ContainerLogStreamer with %+v", params)
+	ctx, cancel := context.WithCancel(context.Background())
+	res := ContainerLogStreamer{
+		params: params,
+		done:   make(chan struct{}),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+	return &res
 }
 
 // Run activates streamer, blocking
-func (l *DockerLogStreamer) Run() error {
+func (l *ContainerLogStreamer) Run() error {
 	log.Printf("[INFO] start log streamer for %s", l.Name())
 
 	// can be canceled from outside by Close call from another thread
@@ -83,7 +88,7 @@ func (l *DockerLogStreamer) Run() error {
 }
 
 // Close kills streamer
-func (l *DockerLogStreamer) Close() (err error) {
+func (l *ContainerLogStreamer) Close() (err error) {
 	l.cancel()
 	l.Wait()
 
@@ -101,11 +106,11 @@ func (l *DockerLogStreamer) Close() (err error) {
 }
 
 // Name of the streamed container
-func (l *DockerLogStreamer) Name() string {
+func (l *ContainerLogStreamer) Name() string {
 	return l.params.Name
 }
 
 // Wait for stream completion
-func (l *DockerLogStreamer) Wait() {
+func (l *ContainerLogStreamer) Wait() {
 	<-l.done
 }

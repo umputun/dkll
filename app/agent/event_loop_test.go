@@ -22,11 +22,6 @@ func TestAgent(t *testing.T) {
 		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
 		},
-		StreamerFactory: func(params logger.LogStreamerParams) LogStreamer {
-			ls := logger.DockerLogStreamer{}
-			ls.Init(params)
-			return &ls
-		},
 		Events:     newMockEventer(),
 		LogEmitter: &mockLogClient{},
 	}
@@ -45,11 +40,6 @@ func TestDemo(t *testing.T) {
 	el := EventLoop{
 		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
-		},
-		StreamerFactory: func(params logger.LogStreamerParams) LogStreamer {
-			ls := logger.DockerLogStreamer{}
-			ls.Init(params)
-			return &ls
 		},
 		Events:     NewDemoEventNotifier(ctx),
 		LogEmitter: &logger.DemoEmitter{Duration: 100 * time.Millisecond},

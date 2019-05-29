@@ -168,19 +168,21 @@ type DemoEventNotifier struct {
 
 // NewDemoEventNotifier makes notifier emitting 3 events
 func NewDemoEventNotifier(ctx context.Context) *DemoEventNotifier {
-	res := DemoEventNotifier{
-		ch: make(chan Event, 3),
+	ch := make(chan Event, 3)
+	res := &DemoEventNotifier{
+		ch: ch,
 	}
-	go func() {
-		res.ch <- Event{Status: true, ContainerName: "nginx", ContainerID: "00001", Group: "system", TS: time.Now()}
-		res.ch <- Event{Status: true, ContainerName: "authenticator", ContainerID: "00002", Group: "app", TS: time.Now()}
-		res.ch <- Event{Status: true, ContainerName: "rest", ContainerID: "00003", Group: "app", TS: time.Now()}
-	}()
-	go func() {
+
+	go func(ch chan Event) {
 		<-ctx.Done()
-		close(res.ch)
-	}()
-	return &res
+		close(ch)
+	}(ch)
+
+	ch <- Event{Status: true, ContainerName: "nginx", ContainerID: "nginx", Group: "system", TS: time.Now()}
+	ch <- Event{Status: true, ContainerName: "mongo", ContainerID: "mongo", Group: "db", TS: time.Now()}
+	ch <- Event{Status: true, ContainerName: "rest", ContainerID: "rest", Group: "app", TS: time.Now()}
+
+	return res
 }
 
 // Channel gets eventsCh with all containers events

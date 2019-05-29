@@ -34,6 +34,20 @@ func Test_Run(t *testing.T) {
 	time.Sleep(200 * time.Millisecond) // let it start
 }
 
+func TestDemoMode(t *testing.T) {
+	defer os.RemoveAll("/tmp/logger.test")
+	opts := AgentOpts{FilesLocation: "/tmp/logger.test", EnableFiles: true, MaxFileSize: 1, MaxFilesCount: 10,
+		DemoMode: true, DemoRecEvery: time.Millisecond * 100}
+	a := AgentCmd{AgentOpts: opts}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*500)
+	defer cancel()
+	require.NoError(t, a.Run(ctx))
+
+	b, err := ioutil.ReadFile("/tmp/logger.test/system/nginx.log")
+	assert.NoError(t, err)
+	t.Log(string(b))
+}
+
 func Test_makeLogWriters(t *testing.T) {
 	defer os.RemoveAll("/tmp/logger.test")
 

@@ -15,8 +15,7 @@ import (
 func TestLogger_WithError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	mock := mockLogsPublisher{err: nil, ctx: ctx}
-	l := &DockerLogStreamer{}
-	l.Init(LogStreamerParams{ID: "test_id", Name: "test_name", LogsEmitter: &mock})
+	l := NewContainerLogStreamer(ContainerStreamerParams{ID: "test_id", Name: "test_name", LogsEmitter: &mock})
 	st := time.Now()
 	go func() {
 		e := l.Run()
@@ -36,8 +35,7 @@ func TestLogger_Close(t *testing.T) {
 	ctx := context.Background()
 
 	mock := mockLogsPublisher{err: nil, ctx: ctx}
-	l := &DockerLogStreamer{}
-	l.Init(LogStreamerParams{ID: "test_id", Name: "test_name", LogsEmitter: &mock})
+	l := NewContainerLogStreamer(ContainerStreamerParams{ID: "test_id", Name: "test_name", LogsEmitter: &mock})
 	st := time.Now()
 
 	go func() {

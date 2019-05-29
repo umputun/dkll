@@ -12,9 +12,8 @@ import (
 
 // EventLoop reacts on messages from Events, adds+activate LogStreamer as well as stop+remove them.
 type EventLoop struct {
-	MixOuts         bool
-	WriterFactory   func(ctx context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error)
-	StreamerFactory func(params logger.LogStreamerParams) LogStreamer
+	MixOuts       bool
+	WriterFactory func(ctx context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error)
 
 	LogEmitter LogEmitter
 	Events     Eventer
@@ -75,7 +74,7 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 			return
 		}
 
-		ls := l.StreamerFactory(logger.LogStreamerParams{
+		ls := logger.NewContainerLogStreamer(logger.ContainerStreamerParams{
 			LogsEmitter: l.LogEmitter,
 			ID:          event.ContainerID,
 			Name:        event.ContainerName,

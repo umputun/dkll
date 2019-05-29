@@ -58,6 +58,10 @@ func (a AgentCmd) Run(ctx context.Context) error {
 		return errors.New("syslog is not supported on this OS")
 	}
 
+	if a.DemoMode {
+		log.Printf("[WARN] running agent in demo mode")
+	}
+
 	loop, err := a.makeEventLoop(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to make event loop")

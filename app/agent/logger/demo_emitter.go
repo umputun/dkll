@@ -25,11 +25,11 @@ func (d *DemoEmitter) Logs(o docker.LogsOptions) error {
 			var line string
 			switch o.Container {
 			case "nginx":
-				line = nginxDemo[int(rand.Intn(len(nginxDemo)-1))]
+				line = nginxDemo[rand.Intn(len(nginxDemo)-1)]
 			case "rest":
-				line = restDemo[int(rand.Intn(len(restDemo)-1))]
+				line = restDemo[rand.Intn(len(restDemo)-1)]
 			case "mongo":
-				line = mongoDemo[int(rand.Intn(len(mongoDemo)-1))]
+				line = mongoDemo[rand.Intn(len(mongoDemo)-1)]
 
 			}
 

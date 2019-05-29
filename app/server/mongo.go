@@ -213,7 +213,10 @@ func (m *Mongo) init(collection string) error {
 		return nil
 	})
 
-	return err
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		return err
+	}
+	return nil
 }
 
 func (m *Mongo) makeMongoEntry(entry core.LogEntry) mongoLogEntry {

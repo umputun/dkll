@@ -3,9 +3,9 @@ package agent
 import (
 	"context"
 	"io"
-	"log"
 
 	docker "github.com/fsouza/go-dockerclient"
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/agent/logger"
 )
@@ -14,21 +14,21 @@ import (
 type EventLoop struct {
 	MixOuts         bool
 	WriterFactory   func(ctx context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error)
-	StreamerFactory func(params *logger.LogStreamerParams) LogStreamer
+	StreamerFactory func(params logger.LogStreamerParams) LogStreamer
 
-	LogClient  LogClient
+	LogEmitter LogEmitter
 	Events     Eventer
 	logStreams map[string]LogStreamer // keep streams per containerID
 }
 
 type LogStreamer interface {
-	Go(ctx context.Context)
+	Run() error
 	Close() error
 	Name() string
 }
 
-// LogClient wraps DockerClient with the minimal interface
-type LogClient interface {
+// LogsEmitter wraps DockerClient with the minimal interface
+type LogEmitter interface {
 	Logs(opts docker.LogsOptions) error
 }
 
@@ -37,7 +37,8 @@ type Eventer interface {
 	Channel() <-chan Event
 }
 
-// Run blocking even loop. Receives events from Eventer and makes new log streams. Also deregister terminated streams.
+// Run blocking even loop. Receives events from Eventer and makes new log streams.
+// Also deregister terminated streams.
 func (l *EventLoop) Run(ctx context.Context) {
 	l.logStreams = map[string]LogStreamer{}
 
@@ -62,6 +63,7 @@ func (l *EventLoop) Run(ctx context.Context) {
 	}
 }
 
+// onEvent dispatches add/remove container events from docker
 func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 
 	if event.Status {
@@ -72,15 +74,21 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 			return
 		}
 
-		ls := l.StreamerFactory(&logger.LogStreamerParams{
-			DockerClient:  l.LogClient,
-			ContainerID:   event.ContainerID,
-			ContainerName: event.ContainerName,
-			LogWriter:     logWriter,
-			ErrWriter:     errWriter,
+		ls := l.StreamerFactory(logger.LogStreamerParams{
+			LogsEmitter: l.LogEmitter,
+			ID:          event.ContainerID,
+			Name:        event.ContainerName,
+			LogWriter:   logWriter,
+			ErrWriter:   errWriter,
 		})
 
-		ls.Go(ctx) // activate log stream, stream log content to ls.LogWriter and ls.ErrWriter
+		// activate log stream, stream log content to ls.LogWriter and ls.ErrWriter
+		go func() {
+			if e := ls.Run(); e != nil {
+				log.Printf("[WARN] streamer terminated for %s, %v", ls.Name(), e)
+			}
+		}()
+
 		l.logStreams[event.ContainerID] = ls
 		log.Printf("[DEBUG] streaming for %d containers", len(l.logStreams))
 		return
@@ -93,8 +101,12 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 		return
 	}
 
+	// close stream and log files
 	log.Printf("[DEBUG] close loggers for %+v", event)
-	ls.Close() // close stream and log files
+	if e := ls.Close(); e != nil {
+		log.Printf("[WARN] close error for %s, %v", event.ContainerName, e)
+	}
 	delete(l.logStreams, event.ContainerID)
+
 	log.Printf("[DEBUG] streaming for %d containers", len(l.logStreams))
 }

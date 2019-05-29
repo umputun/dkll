@@ -15,10 +15,21 @@ before_install:
   - export MONGO_TEST=mongodb://127.0.0.1:27017
   - export PATH=$(pwd)/bin:$PATH
 
-before_script:
-  - sleep 3
+stages:
+  - test
+  - linter
+  - coverage
 
-script:
-  - go test -v -mod=vendor -covermode=count -coverprofile=profile.cov ./... || travis_terminate 1;
-  - golangci-lint run --out-format=tab --tests=false ./... || travis_terminate 1;
-  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci || travis_terminate 1;
+jobs:
+  include:
+    - stage: test
+      script: go test -v -mod=vendor -covermode=count -coverprofile=profile.cov ./...
+    - stage: linter
+      script: golangci-lint run --out-format=tab --tests=false ./...
+    - stage: coverage
+      script: golangci-lint run --out-format=tab --tests=false ./...
+
+#script:
+#  - go test -v -mod=vendor -covermode=count -coverprofile=profile.cov ./... || travis_terminate 1;
+#  - golangci-lint run --out-format=tab --tests=false ./... || travis_terminate 1;
+#  - $GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci || travis_terminate 1;

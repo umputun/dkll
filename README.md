@@ -9,6 +9,9 @@ Logging server, agent and CLI client for dockerized infrastructure.
 - Server also provides http api to access logs.
 - Client (`dkll clinet`) is a binary command-line utility to read/filter/search and follow logs.
 
+_note: `dkll agent` can be used as a standalone container without server and client. In this case it will be a local collector of 
+all logs and/or forwarder to any (external or internal) syslog server._
+ 
 
 ## Build from the source
 

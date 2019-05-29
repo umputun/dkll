@@ -76,10 +76,10 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 
 	if c.TailMode {
 		id, err = c.getLastID(ctx)
+		if err != nil && err == context.Canceled {
+			return request, nil
+		}
 		if err != nil {
-			if err == context.Canceled {
-				return request, nil
-			}
 			return request, errors.Wrapf(err, "can't get last ID for tail mode")
 		}
 		request.LastID = id
@@ -87,10 +87,11 @@ func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Requ
 
 	for {
 		items, id, err = c.getNext(ctx, request)
+
+		if err != nil && err == context.Canceled {
+			return request, nil
+		}
 		if err != nil {
-			if err == context.Canceled {
-				return request, nil
-			}
 			return request, errors.Wrapf(err, "can't get data for request %+v", request)
 		}
 

@@ -21,12 +21,10 @@ type ClientOpts struct {
 	ShowSyslog bool     `short:"s" description:"show syslog messages"`
 	FollowMode bool     `short:"f" description:"follow mode"`
 	TailMode   bool     `short:"t" description:"tail mode"`
-	// MaxRecs    int      `short:"n" description:"show N records"`
-	Grep   []string `short:"g" description:"grep on entire record"`
-	UnGrep []string `short:"G" description:"un-grep on entire record"`
-
-	// TailNum  int    `long:"tail" default:"10" description:"number of initial records"`
-	TimeZone string `long:"tz"  default:"Local" description:"time zone"`
+	MaxRecs    int      `short:"n" description:"show N records"`
+	Grep       []string `short:"g" description:"grep on entire record"`
+	UnGrep     []string `short:"G" description:"un-grep on entire record"`
+	TimeZone   string   `long:"tz"  default:"Local" description:"time zone"`
 }
 
 // ClientCmd wraps client mode
@@ -49,7 +47,7 @@ func (c ClientCmd) Run(ctx context.Context) error {
 	}
 
 	request := core.Request{
-		Limit:      100,
+		Limit:      c.MaxRecs,
 		Containers: c.Containers,
 		Hosts:      c.Hosts,
 		Excludes:   c.Excludes,

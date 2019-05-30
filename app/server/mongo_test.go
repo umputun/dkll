@@ -55,6 +55,13 @@ func TestMongo_Find(t *testing.T) {
 	assert.Equal(t, "msg1", recs[0].Msg)
 	assert.Equal(t, "msg6", recs[5].Msg)
 
+	recs, err = m.Find(core.Request{Limit: 3})
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(recs), "3 last records")
+	assert.Equal(t, "msg4", recs[0].Msg)
+	assert.Equal(t, "msg5", recs[1].Msg)
+	assert.Equal(t, "msg6", recs[2].Msg)
+
 	recs, err = m.Find(core.Request{LastID: "5ce8718aef1d7346a5443a3f"})
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(recs), "records after 5ce8718aef1d7346a5443a3f")

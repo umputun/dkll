@@ -1,6 +1,7 @@
 package server
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -122,7 +123,14 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
 	var mresult []mongoLogEntry
 	err := m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.Find(query).Sort("+_id").All(&mresult)
+		if req.LastID == "" || req.LastID == "0" {
+			if e := coll.Find(query).Sort("-_id").Limit(req.Limit).All(&mresult); e != nil {
+				return e
+			}
+			sort.Slice(mresult, func(i, j int) bool { return mresult[i].ID < mresult[j].ID })
+			return nil
+		}
+		return coll.Find(query).Sort("+_id").Limit(req.Limit).All(&mresult)
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "can't get records for %+v", req)

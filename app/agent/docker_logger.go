@@ -88,9 +88,11 @@ func (l *ContainerLogStreamer) Run() error {
 }
 
 // Close kills streamer
-func (l *ContainerLogStreamer) Close() (err error) {
+func (l *ContainerLogStreamer) Close(ctx context.Context) (err error) {
 	l.cancel()
-	l.Wait()
+	if e := l.Wait(ctx); e != nil {
+		return errors.Wrap(e, "failed in wait on stream close")
+	}
 
 	if e := l.params.LogWriter.Close(); e != nil {
 		return errors.Wrap(e, "failed to close log file (out) writer")
@@ -111,6 +113,11 @@ func (l *ContainerLogStreamer) Name() string {
 }
 
 // Wait for stream completion
-func (l *ContainerLogStreamer) Wait() {
-	<-l.done
+func (l *ContainerLogStreamer) Wait(ctx context.Context) error {
+	select {
+	case <-l.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

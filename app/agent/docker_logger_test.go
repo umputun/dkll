@@ -24,7 +24,7 @@ func TestLogger_WithError(t *testing.T) {
 	}()
 	time.Sleep(10 * time.Millisecond)
 	time.AfterFunc(time.Second, cancel)
-	l.Wait()
+	assert.NoError(t, l.Wait(context.Background()))
 	assert.True(t, time.Since(st) < time.Second*2, "terminated early")
 	time.Sleep(10 * time.Millisecond)
 }
@@ -41,10 +41,10 @@ func TestLogger_Close(t *testing.T) {
 	}()
 	time.Sleep(100 * time.Millisecond)
 	time.AfterFunc(2*time.Second, func() {
-		assert.NoError(t, l.Close())
+		assert.NoError(t, l.Close(context.Background()))
 	})
 
-	l.Wait()
+	assert.NoError(t, l.Wait(context.Background()))
 	assert.True(t, time.Since(st) >= time.Second*2, fmt.Sprintf("elapsed: %v", time.Since(st)))
 }
 

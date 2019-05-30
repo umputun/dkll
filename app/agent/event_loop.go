@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"io"
+	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
@@ -21,7 +22,7 @@ type EventLoop struct {
 // LogStreamer defines runnable interface created on event
 type LogStreamer interface {
 	Run() error
-	Close() error
+	Close(ctx context.Context) error
 	Name() string
 }
 
@@ -44,13 +45,17 @@ func (l *EventLoop) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Print("[WARN] event loop terminated")
+
+			closeCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			for _, v := range l.logStreams {
-				if err := v.Close(); err != nil {
+
+				if err := v.Close(closeCtx); err != nil {
 					log.Printf("[WARN] failed to close %s, %v", v.Name(), err)
 					continue
 				}
 				log.Printf("[INFO] close logger stream for %s", v.Name())
 			}
+			cancel()
 			return
 		case event, ok := <-l.Events.Channel():
 			if ok {
@@ -101,7 +106,9 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 
 	// close stream and log files
 	log.Printf("[DEBUG] close loggers for %+v", event)
-	if e := ls.Close(); e != nil {
+	closeCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	if e := ls.Close(closeCtx); e != nil {
 		log.Printf("[WARN] close error for %s, %v", event.ContainerName, e)
 	}
 	delete(l.logStreams, event.ContainerID)

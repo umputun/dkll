@@ -31,7 +31,7 @@ services:
   dkll-agent:
     image: umputun/dkll
     container_name: "dkll-agent"
-    hostname: "dkll-agent"
+    hostname: "demo-host"
     restart: always
 
     logging:

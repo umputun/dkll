@@ -12,11 +12,12 @@ RUN \
 FROM umputun/baseimage:app-latest
 
 COPY --from=build /build/dkll/dkll /srv/dkll
+ADD init.sh /srv/init.sh
+
 RUN chown -R app:app /srv
-RUN chmod +x /srv/dkll
+RUN chmod +x /srv/dkll /srv/init.sh
 
 EXPOSE 8080 5514
 WORKDIR /srv
 
 CMD ["/srv/dkll", "server"]
-ENTRYPOINT ["/init.sh"]

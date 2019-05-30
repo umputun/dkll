@@ -15,10 +15,10 @@ import (
 func TestDemoEmitter_Logs(t *testing.T) {
 	d := DemoEmitter{time.Millisecond * 100}
 	wr := mockDemoWriter{}
-	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(time.Millisecond*1090, cancel)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*1090)
+	defer cancel()
 	err := d.Logs(docker.LogsOptions{Context: ctx, OutputStream: &wr})
-	assert.EqualError(t, err, "context canceled")
+	assert.EqualError(t, err, "context deadline exceeded")
 	t.Logf("%+v", wr.Get())
 	assert.Equal(t, 10+1, len(wr.Get()), "10 messages with extra \n")
 }

@@ -23,9 +23,7 @@ func TestLogger_WithError(t *testing.T) {
 		assert.EqualError(t, e, "context canceled", e.Error())
 	}()
 	time.Sleep(10 * time.Millisecond)
-	time.AfterFunc(time.Second, func() {
-		cancel()
-	})
+	time.AfterFunc(time.Second, cancel)
 	l.Wait()
 	assert.True(t, time.Since(st) < time.Second*2, "terminated early")
 	time.Sleep(10 * time.Millisecond)

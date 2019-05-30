@@ -22,7 +22,6 @@ services:
       - DEBUG=true
     ports:
       - 80:8080
-      - 514:5514
 
     volumes:
       - ./var/logs:/srv/logs
@@ -44,7 +43,7 @@ services:
     environment:
       - LOG_FILES=true
       - LOG_SYSLOG=true
-      - SYSLOG_HOST=dkll-server:514
+      - SYSLOG_HOST=dkll-server:5514
       - EXCLUDE=dkll-agent,dkll-server,dkll-mongo
       - DEBUG=true
       - DEMO=true

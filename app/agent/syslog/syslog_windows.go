@@ -3,6 +3,7 @@
 package syslog
 
 import (
+	"context"
 	"errors"
 	"io"
 )

@@ -111,6 +111,7 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 // Find records matching given request
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
+	req = m.sanitizeReq(req)
 	// eliminate mongo find if lastPublished ID < req.LastID
 	m.lastPublished.Lock()
 	lastPublishedCached := m.lastPublished.entry
@@ -254,4 +255,11 @@ func (m *Mongo) makeLogEntry(entry mongoLogEntry) core.LogEntry {
 		r.CreatedTs = entry.ID.Time()
 	}
 	return r
+}
+
+func (m *Mongo) sanitizeReq(request core.Request) core.Request {
+	if request.Limit > 1000 {
+		request.Limit = 100
+	}
+	return request
 }

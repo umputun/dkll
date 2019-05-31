@@ -3,11 +3,11 @@
 
 Logging server, agent and CLI client for dockerized infrastructure. 
 
-- Each host runs `dkll agent` container collecting logs from all docker containers on the host.
-- The agent can store logs locally, or/and forward them to remote syslog server.
-- Server (`dkll server`) container installed on another host, acts as syslog server and stores logs.
-- Server also provides http api to access logs.
-- Client (`dkll clinet`) is a binary command-line utility to read/filter/search and follow logs.
+- each host runs `dkll agent` container collecting logs from all docker containers on the host.
+- the agent can store logs locally, or/and forward them to remote syslog server.
+- server (`dkll server`) container installed on another host, acts as syslog server and stores logs.
+- server also provides http api to access logs.
+- client (`dkll clinet`) is a binary command-line utility to read/filter/search and follow logs.
 
 _note: `dkll agent` can be used as a standalone container without server and client. In this case it will be a local collector of 
 all logs and/or forwarder to any (external or internal) syslog server._
@@ -15,8 +15,8 @@ all logs and/or forwarder to any (external or internal) syslog server._
 
 ## Build from the source
 
-- clone this repo - `git clone https://github.com/umputun/dkll.git`
-- build the logger - `cd dkll && docker build -t umputun/dkll .`
+1. clone this repo - `git clone https://github.com/umputun/dkll.git`
+2. build the logger - `cd dkll && docker build -t umputun/dkll .`
 
 _alternatively use provided `Makefile`, i.e. `make test lint docker`_
 
@@ -29,10 +29,10 @@ in mongodb (capped collection). Optionally, records can be sent to `<host>/<cont
 
 ### Usage
 
-1. Copy provided `compose-server.yml` to `docker-compose.yml` 
-2. Adjust `docker-compose.yml` if needed. 
-3. Pull containers - `docker-compose pull`
-4. Start server - `docker-compose up -d`
+1. copy provided `compose-server.yml` to `docker-compose.yml` 
+2. adjust `docker-compose.yml` if needed. 
+3. pull containers - `docker-compose pull`
+4. start server - `docker-compose up -d`
 
 
 command line options and env params:
@@ -215,3 +215,9 @@ Help Options:
 * containers (-c), hosts (-h) and exclusions (-x) can be repeated multiple times. 
 * both containers and hosts support regex inside "/", i.e. `/^something/`
 
+## Development 
+
+- go v1.11 and above required
+- repository uses modules and should be cloned outside of GOPATH
+- `dkll server` tests need mongo up and running, i.e. `docker run -d --name=mongo -p 27017:27017 mongo`
+ 

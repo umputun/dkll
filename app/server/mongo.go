@@ -259,7 +259,7 @@ func (m *Mongo) makeLogEntry(entry mongoLogEntry) core.LogEntry {
 
 func (m *Mongo) sanitizeReq(request core.Request) core.Request {
 	if request.Limit > 1000 {
-		request.Limit = 100
+		request.Limit = 1000
 	}
 	return request
 }

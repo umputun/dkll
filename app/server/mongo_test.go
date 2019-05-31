@@ -17,6 +17,9 @@ func TestMongo_LastPublished(t *testing.T) {
 	if skip {
 		return
 	}
+	_, err := m.LastPublished()
+	assert.NotNil(t, err)
+
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	recs := []core.LogEntry{
 		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},

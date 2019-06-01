@@ -6,5 +6,3 @@ echo "timezone=${TIME_ZONE}"
 cp /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime
 echo "${TIME_ZONE}" >/etc/timezone
 date
-
-exec $@

@@ -88,6 +88,7 @@ func newMockEventer() *mockEventer {
 	ch <- Event{Status: true, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
 	ch <- Event{Status: true, ContainerName: "c2", Group: "g1", ContainerID: "id2"}
 	ch <- Event{Status: true, ContainerName: "c3", Group: "g2", ContainerID: "id3"}
+	ch <- Event{Status: true, ContainerName: "c3", Group: "g2", ContainerID: "id3"} // dbl start
 	ch <- Event{Status: false, ContainerName: "c1", Group: "g1", ContainerID: "id1"}
 	close(ch)
 	return &mockEventer{ch: ch}

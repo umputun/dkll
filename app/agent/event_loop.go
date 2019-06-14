@@ -73,7 +73,12 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 		// new/started container detected
 		logWriter, errWriter, err := l.WriterFactory(ctx, event.ContainerName, event.Group)
 		if err != nil {
-			log.Printf("[WARN] ingore event %+v, %v", event, err)
+			log.Printf("[WARN] ignore event %+v, %v", event, err)
+			return
+		}
+
+		if _, found := l.logStreams[event.ContainerID]; found {
+			log.Printf("[WARN] ignore dbl-start %+v, %v", event, err)
 			return
 		}
 

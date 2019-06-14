@@ -174,7 +174,7 @@ Help Options:
 
 #### Demo mode
 
-Defining `--demo` or `$DEMO` switches agent to demo mode emitting fake log messages from fake containers. Everything preconfigured in `compose-demo.yml` and can be activated with `docker-compose -f compose-demo.yml up`.  
+Defining `--demo` or `$DEMO` switches agent to demo mode emitting fake log messages from fake containers. Everything preconfigured in `compose-demo.yml` and can be activated with `MONGO_PASSWD=<any random password> docker-compose -f compose-demo.yml up`.  
 
 ## Client
 

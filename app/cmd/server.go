@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"time"
 
 	"github.com/globalsign/mgo"
 	"gopkg.in/natefinch/lumberjack.v2"
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/server"
 )

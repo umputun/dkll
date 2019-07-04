@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/go-pkgz/mongo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/core"
 )

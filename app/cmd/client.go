@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/client"
 	"github.com/umputun/dkll/app/core"

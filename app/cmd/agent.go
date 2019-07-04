@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/agent"
 	"github.com/umputun/dkll/app/agent/syslog"

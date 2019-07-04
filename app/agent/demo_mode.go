@@ -3,9 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"time"
+
+	log "github.com/go-pkgz/lgr"
 
 	docker "github.com/fsouza/go-dockerclient"
 )

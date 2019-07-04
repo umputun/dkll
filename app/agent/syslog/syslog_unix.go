@@ -9,24 +9,27 @@ import (
 	"time"
 
 	"github.com/go-pkgz/repeater"
+	"github.com/pkg/errors"
 )
 
 // GetWriter returns syslog writer for non-win platform
-func GetWriter(ctx context.Context, syslogHost, syslogPrefix, containerName string) (res io.WriteCloser, err error) {
-	// try UDP syslog first
-	e := repeater.NewDefault(10, time.Second).Do(ctx, func() error {
-		res, err = syslog.Dial("udp4", syslogHost, syslog.LOG_WARNING|syslog.LOG_DAEMON, syslogPrefix+containerName)
-		return err
-	})
+func GetWriter(ctx context.Context, host, proto, prefix, containerName string) (res io.WriteCloser, err error) {
 
-	// try TCP if UDP failed
-	if e != nil {
-		e = repeater.NewDefault(10, time.Second).Do(ctx, func() error {
-			res, err = syslog.Dial("tcp4", syslogHost, syslog.LOG_WARNING|syslog.LOG_DAEMON, syslogPrefix+containerName)
+	switch proto {
+	case "udp", "udp4":
+		e := repeater.NewDefault(10, time.Second).Do(ctx, func() error {
+			res, err = syslog.Dial("udp4", host, syslog.LOG_WARNING|syslog.LOG_DAEMON, prefix+containerName)
 			return err
 		})
+		return res, e
+	case "tcp", "tcp4":
+		e := repeater.NewDefault(10, time.Second).Do(ctx, func() error {
+			res, err = syslog.Dial("tcp4", host, syslog.LOG_WARNING|syslog.LOG_DAEMON, prefix+containerName)
+			return err
+		})
+		return res, e
 	}
-	return res, e
+	return nil, errors.Errorf("unknown syslog protocol %s", proto)
 }
 
 // IsSupported indicates if the platform supports syslog

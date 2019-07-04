@@ -9,9 +9,9 @@ import (
 	"time"
 
 	docker "github.com/fsouza/go-dockerclient"
+	log "github.com/go-pkgz/lgr"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
-	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/agent"
 	"github.com/umputun/dkll/app/agent/syslog"
@@ -24,6 +24,7 @@ type AgentOpts struct {
 	EnableSyslog bool   `long:"syslog" env:"LOG_SYSLOG" description:"enable logging to syslog"`
 	SyslogHost   string `long:"syslog-host" env:"SYSLOG_HOST" default:"127.0.0.1:514" description:"syslog host"`
 	SyslogPrefix string `long:"syslog-prefix" env:"SYSLOG_PREFIX" default:"docker/" description:"syslog prefix"`
+	SyslogProt   string `long:"syslog-proto" env:"SYSLOG_PROTO" default:"udp4" description:"syslog protocol"`
 
 	EnableFiles   bool   `long:"files" env:"LOG_FILES" description:"enable logging to files"`
 	MaxFileSize   int    `long:"max-size" env:"MAX_SIZE" default:"10" description:"size of log triggering rotation (MB)"`
@@ -123,7 +124,7 @@ func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group strin
 	}
 
 	if a.EnableSyslog && syslog.IsSupported() {
-		syslogWriter, err := syslog.GetWriter(ctx, a.SyslogHost, a.SyslogPrefix, containerName)
+		syslogWriter, err := syslog.GetWriter(ctx, a.SyslogHost, a.SyslogProt, a.SyslogPrefix, containerName)
 
 		if err == nil {
 			logWriters = append(logWriters, syslogWriter)

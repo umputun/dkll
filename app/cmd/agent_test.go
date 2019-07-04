@@ -142,7 +142,7 @@ func Test_makeLogWritersSyslogFailed(t *testing.T) {
 }
 
 func Test_makeLogWritersSyslogPassed(t *testing.T) {
-	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:514", SyslogPrefix: "docker/"}
+	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:514", SyslogProt: "udp", SyslogPrefix: "docker/"}
 	a := AgentCmd{AgentOpts: opts}
 	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)

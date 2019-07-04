@@ -21,6 +21,7 @@ type ServerOpts struct {
 	Port               int           `long:"api-port" env:"API_PORT" default:"8080" description:"rest server port"`
 	SyslogPort         int           `long:"syslog-port" env:"SYSLOG_PORT" default:"5514" description:"syslog server port"`
 	Mongo              []string      `long:"mongo" env:"MONGO" required:"true" env-delim:"," description:"mongo host:port"`
+	MongoUser          string        `long:"mongo-user" env:"MONGO_USER" default:"admin" description:"mongo user for auth"`
 	MongoPasswd        string        `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
 	MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
 	MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
@@ -66,9 +67,11 @@ func (s ServerCmd) Run(ctx context.Context) error {
 		Timeout:  s.MongoTimeout,
 		Database: "admin",
 	}
+
 	if s.MongoPasswd != "" {
-		dial.Username = "admin"
+		dial.Username = s.MongoUser
 		dial.Password = s.MongoPasswd
+		log.Printf("[INFO] mongo auth enforced with user %s", s.MongoUser)
 	}
 
 	mgParams := server.MongoParams{DBName: s.MongoDB, Collection: s.MongoColl, Delay: s.MongoDelay,

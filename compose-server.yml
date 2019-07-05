@@ -19,6 +19,8 @@ services:
       - MONGO_DELAY=5s
       - BACK_LOG=/srv/logs
       - MONGO_PASSWD=${MONGO_PASSWD}
+      - APP_UID=1001  # change to your local UID
+      - TIME_ZONE=UTC # change to desired TZ, i.e. "America/Chicago"
 
     ports:
       - 80:8080

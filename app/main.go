@@ -18,7 +18,9 @@ var opts struct {
 	Client cmd.ClientOpts `command:"client" description:"client mode"`
 	Agent  cmd.AgentOpts  `command:"agent" description:"agent mode"`
 
-	Dbg bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
+	Dbg     bool `long:"dbg"  env:"DEBUG" description:"show debug info"`
+	Help    bool `long:"help" description:"show help"`
+	Version bool `long:"version" description:"show version info"`
 }
 
 var revision = "unknown"
@@ -29,15 +31,22 @@ type commander interface {
 
 func main() {
 
-	p := flags.NewParser(&opts, flags.Default)
+	p := flags.NewParser(&opts, flags.PrintErrors|flags.PassDoubleDash)
 	if _, err := p.Parse(); err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		} else {
-			fmt.Printf("%v", err)
-			os.Exit(1)
-		}
+		fmt.Printf("%v", err)
+		os.Exit(1)
 	}
+
+	if opts.Help {
+		p.WriteHelp(os.Stdout)
+		os.Exit(1)
+	}
+
+	if opts.Version {
+		fmt.Printf("dkll %s\n", revision)
+		os.Exit(2)
+	}
+
 	setupLog(opts.Dbg)
 
 	ctx, cancel := context.WithCancel(context.Background())

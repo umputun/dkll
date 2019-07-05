@@ -33,7 +33,6 @@ func main() {
 
 	p := flags.NewParser(&opts, flags.PrintErrors|flags.PassDoubleDash)
 	if _, err := p.Parse(); err != nil {
-		fmt.Printf("%v", err)
 		os.Exit(1)
 	}
 

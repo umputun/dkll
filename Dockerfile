@@ -14,7 +14,7 @@ FROM umputun/baseimage:app-latest
 COPY --from=build /build/dkll/dkll /srv/dkll
 
 RUN chown -R app:app /srv
-RUN chmod +x /srv/dkll /srv/init.sh
+RUN chmod +x /srv/dkll
 
 EXPOSE 8080 5514
 WORKDIR /srv

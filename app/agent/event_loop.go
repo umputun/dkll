@@ -99,7 +99,11 @@ func (l *EventLoop) onEvent(ctx context.Context, event Event) {
 		}()
 
 		l.logStreams[event.ContainerID] = ls
-		log.Printf("[DEBUG] streaming for %d containers", len(l.logStreams))
+		names := []string{}
+		for _, ci := range l.logStreams {
+			names = append(names, ci.Name())
+		}
+		log.Printf("[DEBUG] streaming for %d containers %v", len(l.logStreams), names)
 		return
 	}
 

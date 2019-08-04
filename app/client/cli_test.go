@@ -219,6 +219,43 @@ func TestCliFindFollow(t *testing.T) {
 	assert.Equal(t, int64(6), atomic.LoadInt64(&count), "called 6 times by repeater")
 }
 
+func TestCliFindFollowWithDelay(t *testing.T) {
+	var count int64
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer atomic.AddInt64(&count, 1)
+		if atomic.LoadInt64(&count) < 3 {
+			return
+		}
+		if atomic.LoadInt64(&count) > 5 {
+			require.NoError(t, json.NewEncoder(w).Encode([]core.LogEntry{}))
+			return
+		}
+		if r.URL.Path == "/v1/find" && r.Method == "POST" {
+			c := atomic.LoadInt64(&count)
+			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
+			recs := []core.LogEntry{
+				{
+					ID:   fmt.Sprintf("5ce8718aef1d7346a5443a1%d", c),
+					Host: "h1", Container: "c1", Msg: fmt.Sprintf("msg%d", c),
+					Ts: ts.Add(time.Duration(c) * time.Second),
+				},
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(recs))
+		}
+	}))
+	defer ts.Close()
+
+	out := bytes.Buffer{}
+
+	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}, RepeaterStrategy: &strategy.Once{},
+		UpdateInterval: time.Millisecond}, DisplayParams{Out: &out, FollowMode: true})
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Millisecond*500, cancel)
+	_, err := c.Activate(ctx, core.Request{})
+	assert.NoError(t, err)
+	assert.Equal(t, "h1:c1 - msg3\nh1:c1 - msg4\nh1:c1 - msg5\n", out.String())
+}
+
 func TestCliFindTail(t *testing.T) {
 
 	var count int64

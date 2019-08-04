@@ -10,6 +10,7 @@ import (
 
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -143,7 +144,10 @@ func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group strin
 	}
 
 	if len(logWriters) == 0 {
-		return nil, nil, errors.Errorf("all log writers failed. file %+v, syslog %+v", fileErr, syslogErr)
+		errs := new(multierror.Error)
+		errs = multierror.Append(errs, fileErr)
+		errs = multierror.Append(errs, syslogErr)
+		return nil, nil, errors.Errorf("all log writers failed, %+v", errs.Error())
 	}
 
 	return lw, ew, nil

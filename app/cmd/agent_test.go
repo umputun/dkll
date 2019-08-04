@@ -1,9 +1,14 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
+	"net"
 	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -159,4 +164,72 @@ func Test_makeLogWritersSyslogPassed(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = errWr.Write([]byte("xxx123 line 2\n"))
 	assert.NoError(t, err)
+}
+
+func Test_makeLogWritersSyslogTCP(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	time.AfterFunc(1*time.Second, cancel)
+
+	wg := sync.WaitGroup{}
+	buf := bytes.Buffer{}
+	ts, err := net.Listen("tcp4", "localhost:5514")
+	var accepted int32
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(100 * time.Millisecond):
+				l, ok := ts.(*net.TCPListener)
+				if ok {
+					require.NoError(t, l.SetDeadline(time.Now().Add(10*time.Millisecond)))
+				}
+				conn, err := l.Accept()
+				if err != nil {
+					continue
+				}
+				b := make([]byte, 1000)
+				_, err = conn.Read(b)
+				require.NoError(t, err)
+				buf.Write(b)
+				require.NoError(t, conn.Close())
+				atomic.AddInt32(&accepted, 1)
+			}
+		}
+	}()
+
+	time.Sleep(10 * time.Millisecond)
+
+	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:5514", SyslogProt: "tcp", SyslogPrefix: "docker/"}
+	a := AgentCmd{AgentOpts: opts}
+
+	stdWr, errWr, err := a.makeLogWriters(ctx, "container1", "gr1")
+	require.NoError(t, err)
+	assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
+
+	// write to out writer
+	_, err = stdWr.Write([]byte("abc line 1\n"))
+	assert.NoError(t, err)
+	_, err = stdWr.Write([]byte("xxx123 line 2\n"))
+	assert.NoError(t, err)
+
+	// write to err writer
+	_, err = errWr.Write([]byte("err line 1\n"))
+	assert.NoError(t, err)
+	_, err = errWr.Write([]byte("err xxx123 line 2345\n"))
+	assert.NoError(t, err)
+
+	wg.Wait()
+	t.Log(buf.String())
+	res := strings.Split(buf.String(), "\n")
+	assert.Equal(t, 5, len(res), "4 messages + final eol")
+	assert.Contains(t, res[0], "docker/container1")
+	assert.Contains(t, res[0], ": abc line 1")
+	assert.Contains(t, res[3], "docker/container1")
+	assert.Contains(t, res[3], ": err xxx123 line 2345")
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&accepted))
 }

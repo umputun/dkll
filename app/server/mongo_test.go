@@ -112,6 +112,18 @@ func TestMongo_Find(t *testing.T) {
 	assert.Equal(t, "hh3456", recs[2].Host)
 }
 
+func TestMongo_FindEmpty(t *testing.T) {
+	m, skip := prepMongo(t)
+	if skip {
+		return
+	}
+
+	recs, err := m.Find(core.Request{})
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(recs), "no records")
+	assert.Equal(t, []core.LogEntry{}, recs, "no records with empty slice")
+}
+
 func TestMongo_Init(t *testing.T) {
 	m, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}}, MongoParams{DBName: "test", Collection: "test_msgs"})
 	require.NoError(t, err)

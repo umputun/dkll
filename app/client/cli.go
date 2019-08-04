@@ -69,7 +69,7 @@ func NewCLI(apiParams APIParams, displayParams DisplayParams) *CLI {
 }
 
 // Activate shows tail-like, colorized output. For FollowMode will run endless loop
-// doesn't return error on context cancellation, but return.
+// doesn't return error on context cancellation, but exit func.
 func (c *CLI) Activate(ctx context.Context, request core.Request) (req core.Request, err error) {
 
 	var items []core.LogEntry
@@ -164,6 +164,8 @@ func (c *CLI) getLastID(ctx context.Context) (string, error) {
 
 func (c *CLI) getNext(ctx context.Context, request core.Request) (items []core.LogEntry, lastID string, err error) {
 
+	items = []core.LogEntry{}
+
 	uri := fmt.Sprintf("%s/find", c.API)
 	body := &bytes.Buffer{}
 	if e := json.NewEncoder(body).Encode(request); e != nil {
@@ -191,7 +193,6 @@ func (c *CLI) getNext(ctx context.Context, request core.Request) (items []core.L
 		}
 
 		if len(body) == 0 { // empty body shouldn't be an error
-			items = []core.LogEntry{}
 			return nil
 		}
 		return json.Unmarshal(body, &items)

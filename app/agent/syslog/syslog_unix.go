@@ -48,6 +48,7 @@ func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
 	n, err = s.swr.Write(p)
 	if err != nil {
 		_ = s.swr.Close()
+		return 0, err
 	}
 	return n, err
 }

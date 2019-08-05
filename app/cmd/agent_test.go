@@ -3,12 +3,13 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -171,37 +172,9 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 	defer cancel()
 	time.AfterFunc(1*time.Second, cancel)
 
-	wg := sync.WaitGroup{}
-	buf := bytes.Buffer{}
-	ts, err := net.Listen("tcp4", "localhost:5514")
-	var accepted int32
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(100 * time.Millisecond):
-				l, ok := ts.(*net.TCPListener)
-				if ok {
-					require.NoError(t, l.SetDeadline(time.Now().Add(10*time.Millisecond)))
-				}
-				conn, err := l.Accept()
-				if err != nil {
-					continue
-				}
-				b := make([]byte, 1000)
-				_, err = conn.Read(b)
-				require.NoError(t, err)
-				buf.Write(b)
-				require.NoError(t, conn.Close())
-				atomic.AddInt32(&accepted, 1)
-			}
-		}
-	}()
-
-	time.Sleep(10 * time.Millisecond)
+	var buf syncedBuffer
+	var wg sync.WaitGroup
+	startTcpServer(t, ctx, 5514, &wg, &buf)
 
 	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:5514", SyslogProt: "tcp", SyslogPrefix: "docker/"}
 	a := AgentCmd{AgentOpts: opts}
@@ -230,6 +203,112 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 	assert.Contains(t, res[0], ": abc line 1")
 	assert.Contains(t, res[3], "docker/container1")
 	assert.Contains(t, res[3], ": err xxx123 line 2345")
+}
 
-	assert.Equal(t, int32(1), atomic.LoadInt32(&accepted))
+func Test_makeLogWritersSyslogTcpRetry(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	time.AfterFunc(5*time.Second, cancel)
+
+	ctxListener, cancelListener := context.WithCancel(context.Background())
+	defer cancelListener()
+
+	var buf syncedBuffer
+	var wg1 sync.WaitGroup
+	startTcpServer(t, ctxListener, 5514, &wg1, &buf)
+
+	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:5514", SyslogProt: "tcp", SyslogPrefix: "docker/"}
+	a := AgentCmd{AgentOpts: opts}
+
+	stdWr, errWr, err := a.makeLogWriters(ctx, "container1", "gr1")
+	require.NoError(t, err)
+	assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
+
+	// write to out writer
+	_, err = stdWr.Write([]byte("line 1\n"))
+	assert.NoError(t, err)
+	time.Sleep(10 * time.Millisecond)
+	t.Log("1 ", buf.String())
+
+	// simulate disconnect
+	cancelListener()
+	wg1.Wait()
+
+	var wg2 sync.WaitGroup
+	// restart server
+	go func() {
+		ctxListener, cancelListener = context.WithCancel(context.Background())
+		startTcpServer(t, ctxListener, 5514, &wg2, &buf)
+	}()
+
+	_, err = stdWr.Write([]byte("line 2\n"))
+	assert.NoError(t, err)
+	time.Sleep(10 * time.Millisecond)
+
+	// write to err writer
+	_, err = errWr.Write([]byte("line 3\n"))
+	assert.NoError(t, err)
+	_, err = errWr.Write([]byte("line 4\n"))
+	assert.NoError(t, err)
+
+	time.Sleep(10 * time.Millisecond)
+	cancelListener()
+	wg2.Wait()
+
+	t.Log("2 ", buf.String())
+	res := strings.Split(buf.String(), "\n")
+	assert.Equal(t, 4, len(res), "3 messages + final eol")
+	assert.Contains(t, res[0], "docker/container1")
+	assert.Contains(t, res[0], ": line 1")
+	assert.Contains(t, res[2], "docker/container1")
+	assert.Contains(t, res[2], ": line 4")
+}
+
+func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGroup, buf *syncedBuffer) {
+	log.Print("start test server on ", port)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ts, err := net.Listen("tcp4", fmt.Sprintf("localhost:%d", port))
+		require.NoError(t, err)
+		defer ts.Close()
+		log.Print("test server listen on ", port)
+		conn, err := ts.Accept()
+		defer conn.Close()
+		require.NoError(t, err)
+		log.Printf("connection accepted from %v", conn.RemoteAddr())
+		for {
+			select {
+			case <-ctx.Done():
+				log.Print("canceled test server")
+				return
+			case <-time.After(1 * time.Millisecond):
+				require.NoError(t, conn.SetDeadline(time.Now().Add(time.Millisecond*100)))
+				b := make([]byte, 1500)
+				if l, err := conn.Read(b); err == nil {
+					if _, e := buf.Write(b[:l]); e == nil {
+						log.Printf("> wrote %s", string(b[:l]))
+					}
+				}
+			}
+		}
+	}()
+	time.Sleep(10 * time.Millisecond)
+}
+
+type syncedBuffer struct {
+	buff bytes.Buffer
+	sync.Mutex
+}
+
+func (b *syncedBuffer) Write(data []byte) (int, error) {
+	b.Lock()
+	defer b.Unlock()
+	return b.buff.Write(data)
+}
+
+func (b *syncedBuffer) String() string {
+	b.Lock()
+	defer b.Unlock()
+	return b.buff.String()
 }

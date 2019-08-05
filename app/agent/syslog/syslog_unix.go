@@ -5,6 +5,7 @@ package syslog
 import (
 	"context"
 	"io"
+	"log"
 	"log/syslog"
 	"time"
 
@@ -28,7 +29,7 @@ func GetWriter(ctx context.Context, host, proto, prefix, containerName string) (
 			wr, err = syslog.Dial("tcp4", host, syslog.LOG_WARNING|syslog.LOG_DAEMON, prefix+containerName)
 			return err
 		})
-		return &syslogRetryWriter{swr: wr}, e
+		return &syslogRetryWriter{ctx: ctx, swr: wr}, e
 	}
 	return nil, errors.Errorf("unknown syslog protocol %s", proto)
 }
@@ -42,15 +43,22 @@ func IsSupported() bool {
 // syslog.Write will redial if conn=nil
 type syslogRetryWriter struct {
 	swr *syslog.Writer
+	ctx context.Context
 }
 
 func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
-	n, err = s.swr.Write(p)
-	if err != nil {
-		_ = s.swr.Close()
-		return 0, err
+
+	e := repeater.NewDefault(10, 100*time.Millisecond).Do(s.ctx, func() error {
+		if n, err = s.swr.Write(p); err != nil {
+			log.Printf("[DEBUF] write to syslog failed, %v", err)
+			_ = s.swr.Close()
+		}
+		return err
+	})
+	if e != nil {
+		log.Printf("[WARN] all write retries to syslog failed, %v", err)
 	}
-	return n, err
+	return n, e
 }
 
 func (s *syslogRetryWriter) Close() error {

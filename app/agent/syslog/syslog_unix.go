@@ -50,7 +50,7 @@ func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
 
 	e := repeater.NewDefault(10, 100*time.Millisecond).Do(s.ctx, func() error {
 		if n, err = s.swr.Write(p); err != nil {
-			log.Printf("[DEBUF] write to syslog failed, %v", err)
+			log.Printf("[DEBUG] write to syslog failed, %v", err)
 			_ = s.swr.Close()
 		}
 		return err

@@ -234,12 +234,13 @@ func Test_makeLogWritersSyslogTcpRetry(t *testing.T) {
 	cancelListener()
 	wg1.Wait()
 
-	var wg2 sync.WaitGroup
+	_, err = stdWr.Write([]byte("line will fail\n"))
+	// assert.NotNil(t, err)
+
 	// restart server
-	go func() {
-		ctxListener, cancelListener = context.WithCancel(context.Background())
-		startTcpServer(t, ctxListener, 5514, &wg2, &buf)
-	}()
+	var wg2 sync.WaitGroup
+	ctxListener, cancelListener = context.WithCancel(context.Background())
+	startTcpServer(t, ctxListener, 5514, &wg2, &buf)
 
 	_, err = stdWr.Write([]byte("line 2\n"))
 	assert.NoError(t, err)
@@ -257,25 +258,30 @@ func Test_makeLogWritersSyslogTcpRetry(t *testing.T) {
 
 	t.Log("2 ", buf.String())
 	res := strings.Split(buf.String(), "\n")
-	assert.Equal(t, 4, len(res), "3 messages + final eol")
+	assert.Equal(t, 5, len(res), "4 messages + final eol")
 	assert.Contains(t, res[0], "docker/container1")
 	assert.Contains(t, res[0], ": line 1")
-	assert.Contains(t, res[2], "docker/container1")
-	assert.Contains(t, res[2], ": line 4")
+	assert.Contains(t, res[3], "docker/container1")
+	assert.Contains(t, res[3], ": line 4")
 }
 
 func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGroup, buf *syncedBuffer) {
 	log.Print("start test server on ", port)
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		ts, err := net.Listen("tcp4", fmt.Sprintf("localhost:%d", port))
 		require.NoError(t, err)
-		defer ts.Close()
 		log.Print("test server listen on ", port)
 		conn, err := ts.Accept()
-		defer conn.Close()
 		require.NoError(t, err)
+
+		defer func() {
+			require.NoError(t, conn.Close())
+			require.NoError(t, ts.Close())
+		}()
+
 		log.Printf("connection accepted from %v", conn.RemoteAddr())
 		for {
 			select {
@@ -285,10 +291,16 @@ func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGr
 			case <-time.After(1 * time.Millisecond):
 				require.NoError(t, conn.SetDeadline(time.Now().Add(time.Millisecond*100)))
 				b := make([]byte, 1500)
-				if l, err := conn.Read(b); err == nil {
-					if _, e := buf.Write(b[:l]); e == nil {
-						log.Printf("> wrote %s", string(b[:l]))
-					}
+
+				l, err := conn.Read(b)
+				if err != nil {
+					log.Printf("! read failed %v", err)
+					continue
+				}
+				if _, e := buf.Write(b[:l]); e == nil {
+					log.Printf("> wrote %s", string(b[:l]))
+				} else {
+					log.Printf("! write failed %s, %v", string(b[:l]), e)
 				}
 			}
 		}

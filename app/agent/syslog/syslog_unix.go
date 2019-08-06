@@ -47,8 +47,7 @@ type syslogRetryWriter struct {
 }
 
 func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
-
-	e := repeater.NewDefault(10, 100*time.Millisecond).Do(s.ctx, func() error {
+	e := repeater.NewDefault(10, 500*time.Millisecond).Do(s.ctx, func() error {
 		if n, err = s.swr.Write(p); err != nil {
 			log.Printf("[DEBUG] write to syslog failed, %v", err)
 			_ = s.swr.Close()
@@ -56,6 +55,7 @@ func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
 		return err
 	})
 	if e != nil {
+		_ = s.swr.Close()
 		log.Printf("[WARN] all write retries to syslog failed, %v", err)
 	}
 	return n, e

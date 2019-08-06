@@ -5,9 +5,10 @@ package syslog
 import (
 	"context"
 	"io"
-	"log"
 	"log/syslog"
 	"time"
+
+	log "github.com/go-pkgz/lgr"
 
 	"github.com/go-pkgz/repeater"
 	"github.com/pkg/errors"
@@ -29,6 +30,9 @@ func GetWriter(ctx context.Context, host, proto, prefix, containerName string) (
 			wr, err = syslog.Dial("tcp4", host, syslog.LOG_WARNING|syslog.LOG_DAEMON, prefix+containerName)
 			return err
 		})
+		if e != nil {
+			log.Printf("[FATAL] failed to make writer for tcp syslog transport, %v", e)
+		}
 		return &syslogRetryWriter{ctx: ctx, swr: wr}, e
 	}
 	return nil, errors.Errorf("unknown syslog protocol %s", proto)
@@ -55,8 +59,7 @@ func (s *syslogRetryWriter) Write(p []byte) (n int, err error) {
 		return err
 	})
 	if e != nil {
-		_ = s.swr.Close()
-		log.Printf("[WARN] all write retries to syslog failed, %v", err)
+		log.Printf("[FATAL] all write retries to syslog failed, %v", err)
 	}
 	return n, e
 }

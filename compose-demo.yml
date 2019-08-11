@@ -61,8 +61,7 @@ services:
     hostname: mongo-dkll
     restart: always
     logging: *default_logging
-    volumes:
-      - ./var/mongo:/data/db
+
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWD}

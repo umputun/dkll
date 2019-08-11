@@ -29,6 +29,7 @@ services:
     command: ["/srv/dkll", "server"]
 
   dkll-agent:
+    build: .
     image: umputun/dkll
     container_name: "dkll-agent"
     hostname: "demo-host"

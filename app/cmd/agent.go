@@ -121,7 +121,7 @@ func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group strin
 	}
 
 	if a.EnableSyslog {
-		syslogWriter, errFileWriter, err := a.makeSyslogWriters(containerName, group)
+		syslogWriter, errFileWriter, err := a.makeSyslogWriters(containerName)
 
 		if err != nil {
 			syslogErr = err
@@ -188,7 +188,7 @@ func (a AgentCmd) makeFileWriters(containerName, group string) (logWriter, errWr
 	return logFileWriter, errFileWriter, nil
 }
 
-func (a AgentCmd) makeSyslogWriters(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+func (a AgentCmd) makeSyslogWriters(containerName string) (logWriter, errWriter io.WriteCloser, err error) {
 	errs := new(multierror.Error)
 	logWriter, err = gsyslog.DialLogger(a.SyslogProt, a.SyslogHost, gsyslog.LOG_INFO, "DAEMON", a.SyslogPrefix+containerName)
 	errs = multierror.Append(errs, err)

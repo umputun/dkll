@@ -139,7 +139,7 @@ func Test_makeLogWritersWithJSON(t *testing.T) {
 }
 
 func Test_makeLogWritersSyslogFailed(t *testing.T) {
-	opts := AgentOpts{EnableSyslog: true}
+	opts := AgentOpts{EnableSyslog: true, SyslogProt: "udp4"}
 	a := AgentCmd{AgentOpts: opts}
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(time.Second, cancel)
@@ -152,7 +152,7 @@ func Test_makeLogWritersSyslogPassed(t *testing.T) {
 	a := AgentCmd{AgentOpts: opts}
 	stdWr, errWr, err := a.makeLogWriters(context.Background(), "container1", "gr1")
 	require.NoError(t, err)
-	assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
+	assert.NotEqual(t, stdWr, errWr, "not the same writer for out and err in syslog")
 
 	// write to out writer
 	_, err = stdWr.Write([]byte("abc line 1\n"))
@@ -269,7 +269,7 @@ func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGr
 			}(conn)
 		}
 	}()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 }
 
 type syncedBuffer struct {

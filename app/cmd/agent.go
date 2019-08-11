@@ -11,6 +11,7 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-syslog"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -124,15 +125,15 @@ func (a AgentCmd) makeLogWriters(ctx context.Context, containerName, group strin
 		}
 	}
 
-	if a.EnableSyslog && syslog.IsSupported() {
-		syslogWriter, err := syslog.GetWriter(ctx, a.SyslogHost, a.SyslogProt, a.SyslogPrefix, containerName)
+	if a.EnableSyslog {
+		syslogWriter, errFileWriter, err := a.makeSyslogWriters(containerName, group)
 
-		if err == nil {
-			logWriters = append(logWriters, syslogWriter)
-			errWriters = append(errWriters, syslogWriter)
-		} else {
+		if err != nil {
 			syslogErr = err
 			log.Printf("[WARN] can't connect to syslog, %v", err)
+		} else {
+			logWriters = append(logWriters, syslogWriter)
+			errWriters = append(errWriters, errFileWriter)
 		}
 	}
 
@@ -190,4 +191,14 @@ func (a AgentCmd) makeFileWriters(containerName, group string) (logWriter, errWr
 		logName, errFname, a.MaxFileSize, a.MaxFilesCount, a.MaxFilesAge)
 
 	return logFileWriter, errFileWriter, nil
+}
+
+func (a AgentCmd) makeSyslogWriters(containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+	errs := new(multierror.Error)
+	logWriter, err = gsyslog.DialLogger(a.SyslogProt, a.SyslogHost, gsyslog.LOG_INFO, "DAEMON", a.SyslogPrefix+containerName)
+	errs = multierror.Append(errs, err)
+
+	errWriter, err = gsyslog.DialLogger(a.SyslogProt, a.SyslogHost, gsyslog.LOG_ERR, "DAEMON", a.SyslogPrefix+containerName)
+	errs = multierror.Append(errs, err)
+	return logWriter, errWriter, errs.ErrorOrNil()
 }

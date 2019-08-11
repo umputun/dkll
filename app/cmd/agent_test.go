@@ -189,6 +189,8 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 	_, err = stdWr.Write([]byte("xxx123 line 2\n"))
 	assert.NoError(t, err)
 
+	time.Sleep(100 * time.Millisecond)
+
 	// write to err writer
 	_, err = errWr.Write([]byte("err line 1\n"))
 	assert.NoError(t, err)

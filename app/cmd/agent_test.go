@@ -181,7 +181,7 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 
 	stdWr, errWr, err := a.makeLogWriters(ctx, "container1", "gr1")
 	require.NoError(t, err)
-	//assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
+	assert.NotEqual(t, stdWr, errWr, "not the same writer for out and err in syslog")
 
 	// write to out writer
 	_, err = stdWr.Write([]byte("abc line 1\n"))
@@ -199,73 +199,25 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 	t.Log(buf.String())
 	res := strings.Split(buf.String(), "\n")
 	assert.Equal(t, 5, len(res), "4 messages + final eol")
+	assert.Contains(t, res[0], "<30>")
 	assert.Contains(t, res[0], "docker/container1")
 	assert.Contains(t, res[0], ": abc line 1")
+	assert.Contains(t, res[3], "<27>")
 	assert.Contains(t, res[3], "docker/container1")
 	assert.Contains(t, res[3], ": err xxx123 line 2345")
 }
 
-func Test_makeLogWritersSyslogTcpRetry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	time.AfterFunc(5*time.Second, cancel)
-
-	ctxListener, cancelListener := context.WithCancel(context.Background())
-	defer cancelListener()
-
-	var buf syncedBuffer
-	var wg1 sync.WaitGroup
-	startTcpServer(t, ctxListener, 5514, &wg1, &buf)
-
-	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:5514", SyslogProt: "tcp", SyslogPrefix: "docker/"}
-	a := AgentCmd{AgentOpts: opts}
-
-	stdWr, errWr, err := a.makeLogWriters(ctx, "container1", "gr1")
-	require.NoError(t, err)
-	assert.Equal(t, stdWr, errWr, "same writer for out and err in syslog")
-
-	// write to out writer
-	_, err = stdWr.Write([]byte("line 1\n"))
-	assert.NoError(t, err)
-	time.Sleep(10 * time.Millisecond)
-	t.Log("1 ", buf.String())
-
-	// simulate disconnect
-	cancelListener()
-	wg1.Wait()
-
-	_, err = stdWr.Write([]byte("line will fail\n"))
-	// assert.NotNil(t, err)
-
-	// restart server
-	var wg2 sync.WaitGroup
-	ctxListener, cancelListener = context.WithCancel(context.Background())
-	startTcpServer(t, ctxListener, 5514, &wg2, &buf)
-
-	_, err = stdWr.Write([]byte("line 2\n"))
-	assert.NoError(t, err)
-	time.Sleep(10 * time.Millisecond)
-
-	// write to err writer
-	_, err = errWr.Write([]byte("line 3\n"))
-	assert.NoError(t, err)
-	_, err = errWr.Write([]byte("line 4\n"))
-	assert.NoError(t, err)
-
-	time.Sleep(10 * time.Millisecond)
-	cancelListener()
-	wg2.Wait()
-
-	t.Log("2 ", buf.String())
-	res := strings.Split(buf.String(), "\n")
-	assert.Equal(t, 5, len(res), "4 messages + final eol")
-	assert.Contains(t, res[0], "docker/container1")
-	assert.Contains(t, res[0], ": line 1")
-	assert.Contains(t, res[3], "docker/container1")
-	assert.Contains(t, res[3], ": line 4")
-}
-
 func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGroup, buf *syncedBuffer) {
+
+	closed := func() bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+			return false
+		}
+	}
+
 	log.Print("start test server on ", port)
 	wg.Add(1)
 
@@ -274,35 +226,47 @@ func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGr
 		ts, err := net.Listen("tcp4", fmt.Sprintf("localhost:%d", port))
 		require.NoError(t, err)
 		log.Print("test server listen on ", port)
-		conn, err := ts.Accept()
-		require.NoError(t, err)
 
-		defer func() {
-			require.NoError(t, conn.Close())
-			require.NoError(t, ts.Close())
+		go func() {
+			<-ctx.Done()
+			ts.Close()
 		}()
 
-		log.Printf("connection accepted from %v", conn.RemoteAddr())
 		for {
-			select {
-			case <-ctx.Done():
-				log.Print("canceled test server")
+			var conn net.Conn
+			if closed() {
+				ts.Close()
 				return
-			case <-time.After(1 * time.Millisecond):
-				require.NoError(t, conn.SetDeadline(time.Now().Add(time.Millisecond*100)))
-				b := make([]byte, 1500)
-
-				l, err := conn.Read(b)
-				if err != nil {
-					log.Printf("! read failed %v", err)
-					continue
-				}
-				if _, e := buf.Write(b[:l]); e == nil {
-					log.Printf("> wrote %s", string(b[:l]))
-				} else {
-					log.Printf("! write failed %s, %v", string(b[:l]), e)
-				}
 			}
+			log.Print("listen to accept")
+			if conn, err = ts.Accept(); err != nil {
+				break
+			}
+
+			log.Printf("connection accepted from %v", conn.RemoteAddr())
+			go func(conn net.Conn) {
+				defer conn.Close()
+				for {
+					select {
+					case <-ctx.Done():
+						log.Print("canceled test server")
+						return
+					case <-time.After(1 * time.Millisecond):
+						require.NoError(t, conn.SetDeadline(time.Now().Add(time.Millisecond*100)))
+						b := make([]byte, 1500)
+
+						l, err := conn.Read(b)
+						if err != nil {
+							continue
+						}
+						if _, e := buf.Write(b[:l]); e == nil {
+							log.Printf("> wrote %s", string(b[:l]))
+						} else {
+							log.Printf("! write failed %s, %v", string(b[:l]), e)
+						}
+					}
+				}
+			}(conn)
 		}
 	}()
 	time.Sleep(10 * time.Millisecond)

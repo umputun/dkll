@@ -11,12 +11,11 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	log "github.com/go-pkgz/lgr"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/go-syslog"
+	gsyslog "github.com/hashicorp/go-syslog"
 	"github.com/pkg/errors"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/umputun/dkll/app/agent"
-	"github.com/umputun/dkll/app/agent/syslog"
 )
 
 // AgentOpts holds all flags and env for agent mode
@@ -54,10 +53,6 @@ func (a AgentCmd) Run(ctx context.Context) error {
 
 	if a.Includes != nil && a.Excludes != nil {
 		return errors.New("only single option Excludes/Includes are allowed")
-	}
-
-	if a.EnableSyslog && !syslog.IsSupported() {
-		return errors.New("syslog is not supported on this OS")
 	}
 
 	if a.DemoMode {

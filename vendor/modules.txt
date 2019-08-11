@@ -66,6 +66,8 @@ github.com/gogo/protobuf/proto
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.0.0
 github.com/hashicorp/go-multierror
+# github.com/hashicorp/go-syslog v1.0.0
+github.com/hashicorp/go-syslog
 # github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd
 github.com/ijc/Gotty
 # github.com/jessevdk/go-flags v1.4.0

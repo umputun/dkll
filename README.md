@@ -7,7 +7,7 @@ Logging server, agent and CLI client for dockerized infrastructure.
 - the agent can store logs locally, or/and forward them to remote syslog server.
 - server (`dkll server`) container installed on another host, acts as syslog server and stores logs.
 - server also provides http api to access logs.
-- client (`dkll clinet`) is a binary command-line utility to read/filter/search and follow logs.
+- client (`dkll client`) is a binary command-line utility to read/filter/search and follow logs.
 
 _note: `dkll agent` can be used as a standalone container without server and client. In this case it will be a local collector of 
 all logs and/or forwarder to any (external or internal) syslog server._

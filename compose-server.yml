@@ -43,4 +43,3 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWD}
     ports:
       - "27017:27017"
-    command: --smallfiles

@@ -1,11 +1,11 @@
 package server
 
 import (
+	"context"
 	"testing"
 	"time"
 
-	"github.com/globalsign/mgo"
-	"github.com/go-pkgz/mongo"
+	"github.com/go-pkgz/mongo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -13,12 +13,14 @@ import (
 )
 
 func TestMongo_LastPublished(t *testing.T) {
-	m, skip := prepMongo(t)
-	if skip {
-		return
-	}
-	_, err := m.LastPublished()
-	assert.NotNil(t, err)
+
+	mg, coll, teardown := mongo.MakeTestConnection(t)
+	defer teardown()
+	m, err := NewMongo(mg, MongoParams{DBName: "test", Collection: coll.Name()})
+	require.NoError(t, err)
+
+	_, err = m.LastPublished()
+	assert.NoError(t, err)
 
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	recs := []core.LogEntry{
@@ -37,10 +39,11 @@ func TestMongo_LastPublished(t *testing.T) {
 }
 
 func TestMongo_Find(t *testing.T) {
-	m, skip := prepMongo(t)
-	if skip {
-		return
-	}
+	mg, coll, teardown := mongo.MakeTestConnection(t)
+	defer teardown()
+	m, err := NewMongo(mg, MongoParams{DBName: "test", Collection: coll.Name()})
+	require.NoError(t, err)
+
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	recs := []core.LogEntry{
 		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
@@ -52,7 +55,7 @@ func TestMongo_Find(t *testing.T) {
 	}
 	assert.NoError(t, m.Publish(recs))
 
-	recs, err := m.Find(core.Request{})
+	recs, err = m.Find(core.Request{})
 	assert.NoError(t, err)
 	assert.Equal(t, 6, len(recs), "no-filter, all records")
 	assert.Equal(t, "msg1", recs[0].Msg)
@@ -113,10 +116,10 @@ func TestMongo_Find(t *testing.T) {
 }
 
 func TestMongo_FindEmpty(t *testing.T) {
-	m, skip := prepMongo(t)
-	if skip {
-		return
-	}
+	mg, coll, teardown := mongo.MakeTestConnection(t)
+	defer teardown()
+	m, err := NewMongo(mg, MongoParams{DBName: "test", Collection: coll.Name()})
+	require.NoError(t, err)
 
 	recs, err := m.Find(core.Request{})
 	assert.NoError(t, err)
@@ -125,30 +128,10 @@ func TestMongo_FindEmpty(t *testing.T) {
 }
 
 func TestMongo_Init(t *testing.T) {
-	m, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}}, MongoParams{DBName: "test", Collection: "test_msgs"})
+	mg, _, teardown := mongo.MakeTestConnection(t)
+	defer teardown()
+	require.NoError(t, mg.Database("test").Collection("test_msgs").Drop(context.Background()))
+
+	_, err := NewMongo(mg, MongoParams{DBName: "test", Collection: "test_msgs"})
 	require.NoError(t, err)
-	err = m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.DropCollection()
-	})
-	assert.NoError(t, err)
-}
-
-func TestMongo_InitFailed(t *testing.T) {
-	_, err := NewMongo(mgo.DialInfo{Addrs: []string{"127.0.0.2:27017"}, Timeout: 100 * time.Millisecond},
-		MongoParams{DBName: "test", Collection: "test_msgs"})
-	require.NotNil(t, err)
-}
-
-func prepMongo(t *testing.T) (*Mongo, bool) {
-
-	conn, err := mongo.MakeTestConnection(t)
-	if err != nil {
-		return nil, true
-	}
-	mongo.RemoveTestCollection(t, conn)
-
-	mg := Mongo{Connection: conn}
-	mongo.RemoveTestCollections(t, conn, "msgs_test")
-
-	return &mg, false
 }

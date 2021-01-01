@@ -1,23 +1,25 @@
 package server
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
 	log "github.com/go-pkgz/lgr"
-	"github.com/go-pkgz/mongo"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	mdrv "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/umputun/dkll/app/core"
 )
 
 // Mongo store provides all mongo-related ops
 type Mongo struct {
-	*mongo.Connection
+	*mdrv.Client
 	MongoParams
 
 	lastPublished struct {
@@ -37,24 +39,21 @@ type MongoParams struct {
 const (
 	defMaxDocs           = 100000000               // 100 Millions
 	defMaxCollectionSize = 10 * 1024 * 1024 * 1024 // 10G
+	defaultLimit         = 1000
 )
 
 type mongoLogEntry struct {
-	ID        bson.ObjectId `bson:"_id,omitempty"`
-	Host      string        `bson:"host"`
-	Container string        `bson:"container"`
-	Pid       int           `bson:"pid"`
-	Msg       string        `bson:"msg"`
-	Ts        time.Time     `bson:"ts"`
+	ID        primitive.ObjectID `bson:"_id,omitempty"`
+	Host      string             `bson:"host"`
+	Container string             `bson:"container"`
+	Pid       int                `bson:"pid"`
+	Msg       string             `bson:"msg"`
+	Ts        time.Time          `bson:"ts"`
 }
 
 // NewMongo makes Mongo accessor
-func NewMongo(dial mgo.DialInfo, params MongoParams) (res *Mongo, err error) {
-	log.Printf("[INFO] make new mongo server with dial=%+v, %+v", dial, params)
-	mg, err := mongo.NewServer(dial, mongo.ServerParams{Delay: int(params.Delay.Seconds()), ConsistencyMode: mgo.Monotonic})
-	if err != nil {
-		return nil, err
-	}
+func NewMongo(client *mdrv.Client, params MongoParams) (res *Mongo, err error) {
+	log.Printf("[INFO] make new mongo server with %+v", params)
 
 	if params.MaxCollectionSize == 0 {
 		params.MaxCollectionSize = defMaxCollectionSize
@@ -63,7 +62,7 @@ func NewMongo(dial mgo.DialInfo, params MongoParams) (res *Mongo, err error) {
 		params.MaxDocs = defMaxDocs
 	}
 
-	res = &Mongo{Connection: mongo.NewConnection(mg, params.DBName, params.Collection), MongoParams: params}
+	res = &Mongo{Client: client, MongoParams: params}
 	if err := res.init(params.Collection); err != nil {
 		return nil, err
 	}
@@ -76,41 +75,50 @@ func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 	for i, v := range records {
 		recs[i] = m.makeMongoEntry(v)
 	}
-	err = m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.Insert(recs...)
-	})
-	if len(records) > 0 {
+
+	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	res, err := coll.InsertMany(context.TODO(), recs)
+	if err != nil {
+		return errors.Wrapf(err, "publish %d records", len(records))
+	}
+
+	if len(res.InsertedIDs) > 0 {
 		m.lastPublished.Lock()
 		m.lastPublished.entry = records[len(records)-1]
 		m.lastPublished.Unlock()
 	}
-	return err
+	return nil
 }
 
 // LastPublished returns latest published entry
 func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 
-	cachedLast := func() (e core.LogEntry, ok bool) {
+	cachedLast := func() (entry core.LogEntry, ok bool) {
 		m.lastPublished.Lock()
-		e = m.lastPublished.entry
+		entry = m.lastPublished.entry
 		m.lastPublished.Unlock()
-		return e, e.ID != ""
+		return entry, entry.ID != ""
 	}
 
-	if e, ok := cachedLast(); ok {
-		return e, nil
+	if lastEntry, ok := cachedLast(); ok {
+		return lastEntry, nil
 	}
 
 	var mentry mongoLogEntry
-	err = m.WithCollection(func(coll *mgo.Collection) error {
-		return coll.Find(bson.M{}).Sort("-_id").Limit(1).One(&mentry)
-	})
-	return m.makeLogEntry(mentry), err
+	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	res := coll.FindOne(context.TODO(), bson.M{}, options.FindOne().SetSort(bson.D{{"_id", -1}}))
+	if err := res.Decode(&mentry); err != nil {
+		return core.LogEntry{}, nil
+	}
+	return m.makeLogEntry(mentry), nil
 }
 
 // Find records matching given request
 func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 
+	if req.Limit == 0 {
+		req.Limit = defaultLimit
+	}
 	req = m.sanitizeReq(req)
 	// eliminate mongo find if lastPublished ID < req.LastID
 	m.lastPublished.Lock()
@@ -123,18 +131,22 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 	query := m.makeQuery(req)
 
 	var mresult []mongoLogEntry
-	err := m.WithCollection(func(coll *mgo.Collection) error {
-		if req.LastID == "" || req.LastID == "0" {
-			if e := coll.Find(query).Sort("-_id").Limit(req.Limit).All(&mresult); e != nil {
-				return e
-			}
-			sort.Slice(mresult, func(i, j int) bool { return mresult[i].ID < mresult[j].ID })
-			return nil
-		}
-		return coll.Find(query).Sort("+_id").Limit(req.Limit).All(&mresult)
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "can't get records for %+v", req)
+	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+
+	sortOpt := bson.D{{"_id", 1}}
+	if req.LastID == "" || req.LastID == "0" {
+		sortOpt = bson.D{{"_id", -1}}
+	}
+	cursor, e := coll.Find(context.TODO(), query, options.Find().SetLimit(int64(req.Limit)).SetSort(sortOpt))
+	if e != nil {
+		return nil, errors.Wrapf(e, "can't get records for %+v", req)
+	}
+	if e = cursor.All(context.TODO(), &mresult); e != nil {
+		return nil, errors.Wrapf(e, "can't decode records for %+v", req)
+	}
+
+	if req.LastID == "" || req.LastID == "0" {
+		sort.Slice(mresult, func(i, j int) bool { return mresult[i].ID.String() < mresult[j].ID.String() })
 	}
 
 	result := make([]core.LogEntry, len(mresult))
@@ -181,7 +193,7 @@ func (m *Mongo) convertListWithRegex(elems []string) []interface{} {
 	var result []interface{}
 	for _, elem := range elems {
 		if strings.HasPrefix(elem, "/") && strings.HasSuffix(elem, "/") {
-			result = append(result, bson.RegEx{Pattern: elem[1 : len(elem)-1], Options: ""})
+			result = append(result, primitive.Regex{Pattern: elem[1 : len(elem)-1], Options: ""})
 		} else {
 			result = append(result, elem)
 		}
@@ -189,10 +201,17 @@ func (m *Mongo) convertListWithRegex(elems []string) []interface{} {
 	return result
 }
 
-func (m *Mongo) getBid(id string) bson.ObjectId {
-	bid := bson.ObjectId("000000000000")
-	if id != "0" && bson.IsObjectIdHex(id) {
-		bid = bson.ObjectIdHex(id)
+func (m *Mongo) getBid(id string) primitive.ObjectID {
+
+	if id == "0" || id == "" {
+		res, _ := primitive.ObjectIDFromHex("000000000000")
+		return res
+	}
+
+	bid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		res, _ := primitive.ObjectIDFromHex("000000000000")
+		return res
 	}
 	return bid
 }
@@ -201,29 +220,25 @@ func (m *Mongo) getBid(id string) bson.ObjectId {
 func (m *Mongo) init(collection string) error {
 	log.Printf("[INFO] create Collection %s", collection)
 
-	indexes := []mgo.Index{
-		{Key: []string{"host", "container", "ts"}},
-		{Key: []string{"ts", "host", "container"}},
-		{Key: []string{"container", "ts"}},
+	indexes := []mdrv.IndexModel{
+		{Keys: bson.D{{"host", 1}, {"container", 1}, {"ts", 1}}},
+		{Keys: bson.D{{"ts", 1}, {"host", 1}, {"container", 1}}},
+		{Keys: bson.D{{"container", 1}, {"ts", 1}}},
 	}
 
-	err := m.WithDB(func(dbase *mgo.Database) error {
-		coll := dbase.C(collection)
-		e := coll.Create(&mgo.CollectionInfo{ForceIdIndex: true, Capped: true, MaxBytes: m.MaxCollectionSize, MaxDocs: m.MaxDocs})
-		if e != nil {
-			return e
-		}
-		for _, index := range indexes {
-			if err := coll.EnsureIndex(index); err != nil {
-				log.Printf("[WARN] can't insure index %v, %v", index, err)
-			}
-		}
-		return nil
-	})
+	err := m.Client.Database(m.MongoParams.DBName).CreateCollection(context.Background(), m.MongoParams.Collection,
+		options.CreateCollection().SetCapped(true).SetSizeInBytes(int64(m.MaxCollectionSize)).
+			SetMaxDocuments(int64(m.MaxDocs)))
 
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
-		return err
+	if err != nil {
+		return errors.Wrapf(err, "initilize collection %s with %+v", collection, m.MongoParams)
 	}
+
+	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	if _, err := coll.Indexes().CreateMany(context.TODO(), indexes); err != nil {
+		return errors.Wrap(err, "create indexes")
+	}
+
 	return nil
 }
 
@@ -237,7 +252,7 @@ func (m *Mongo) makeMongoEntry(entry core.LogEntry) mongoLogEntry {
 		Pid:       entry.Pid,
 	}
 	if entry.ID == "" {
-		res.ID = bson.NewObjectId()
+		res.ID = primitive.NewObjectID()
 	}
 	return res
 }
@@ -251,9 +266,7 @@ func (m *Mongo) makeLogEntry(entry mongoLogEntry) core.LogEntry {
 		Ts:        entry.Ts,
 		Pid:       entry.Pid,
 	}
-	if entry.ID.Valid() {
-		r.CreatedTs = entry.ID.Time()
-	}
+	r.CreatedTs = entry.ID.Timestamp()
 	return r
 }
 

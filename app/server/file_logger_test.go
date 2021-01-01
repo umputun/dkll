@@ -30,12 +30,12 @@ func TestFileLogger(t *testing.T) {
 	l := NewFileLogger(wrf, merged)
 
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 123, time.Local)
-	assert.NoError(t, l.Write(core.LogEntry{ID: "01", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts}))
-	assert.NoError(t, l.Write(core.LogEntry{ID: "02", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts}))
-	assert.NoError(t, l.Write(core.LogEntry{ID: "02", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts}))
-	assert.NoError(t, l.Write(core.LogEntry{ID: "03", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts}))
-	assert.NoError(t, l.Write(core.LogEntry{ID: "04", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts}))
-	assert.NoError(t, l.Write(core.LogEntry{ID: "05", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "01", Host: "h1", Container: "c1", Msg: "msg1", TS: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "02", Host: "h1", Container: "c2", Msg: "msg2", TS: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "02", Host: "h2", Container: "c1", Msg: "msg3", TS: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "03", Host: "h1", Container: "c1", Msg: "msg4", TS: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "04", Host: "h1", Container: "c2", Msg: "msg5", TS: ts}))
+	assert.NoError(t, l.Write(core.LogEntry{ID: "05", Host: "h2", Container: "c2", Msg: "msg6", TS: ts}))
 
 	// check containers writes
 	assert.Equal(t, 4, containerWritersNum, "4 host+container combos")

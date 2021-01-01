@@ -24,12 +24,12 @@ func TestMongo_LastPublished(t *testing.T) {
 
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	recs := []core.LogEntry{
-		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)},
 	}
 	assert.NoError(t, m.Publish(recs))
 
@@ -46,12 +46,12 @@ func TestMongo_Find(t *testing.T) {
 
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	recs := []core.LogEntry{
-		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)},
 	}
 	assert.NoError(t, m.Publish(recs))
 
@@ -84,8 +84,8 @@ func TestMongo_Find(t *testing.T) {
 	recs, err = m.Find(core.Request{FromTS: ts.Add(1 * time.Second), ToTS: ts.Add(4 * time.Second)})
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(recs), "time interval")
-	assert.Equal(t, ts.Add(1*time.Second), recs[0].Ts.In(time.Local))
-	assert.Equal(t, ts.Add(3*time.Second), recs[2].Ts.In(time.Local))
+	assert.Equal(t, ts.Add(1*time.Second), recs[0].TS.In(time.Local))
+	assert.Equal(t, ts.Add(3*time.Second), recs[2].TS.In(time.Local))
 
 	recs, err = m.Find(core.Request{Excludes: []string{"c2"}})
 	assert.NoError(t, err)
@@ -102,9 +102,9 @@ func TestMongo_Find(t *testing.T) {
 	assert.Equal(t, "c1", recs[2].Container)
 
 	recs = []core.LogEntry{
-		{ID: "5ce8718aef1d7346a5443b1f", Host: "hh1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443b2f", Host: "hh22", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-		{ID: "5ce8718aef1d7346a5443b3f", Host: "hh3456", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443b1f", Host: "hh1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443b2f", Host: "hh22", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+		{ID: "5ce8718aef1d7346a5443b3f", Host: "hh3456", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
 	}
 	assert.NoError(t, m.Publish(recs))
 	recs, err = m.Find(core.Request{Hosts: []string{"/hh/"}})

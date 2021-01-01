@@ -48,7 +48,7 @@ type mongoLogEntry struct {
 	Container string             `bson:"container"`
 	Pid       int                `bson:"pid"`
 	Msg       string             `bson:"msg"`
-	Ts        time.Time          `bson:"ts"`
+	TS        time.Time          `bson:"ts"`
 }
 
 // NewMongo makes Mongo accessor
@@ -248,7 +248,7 @@ func (m *Mongo) makeMongoEntry(entry core.LogEntry) mongoLogEntry {
 		Host:      entry.Host,
 		Container: entry.Container,
 		Msg:       entry.Msg,
-		Ts:        entry.Ts,
+		TS:        entry.TS,
 		Pid:       entry.Pid,
 	}
 	if entry.ID == "" {
@@ -263,10 +263,10 @@ func (m *Mongo) makeLogEntry(entry mongoLogEntry) core.LogEntry {
 		Host:      entry.Host,
 		Container: entry.Container,
 		Msg:       entry.Msg,
-		Ts:        entry.Ts,
+		TS:        entry.TS,
 		Pid:       entry.Pid,
 	}
-	r.CreatedTs = entry.ID.Timestamp()
+	r.CreatedTS = entry.ID.Timestamp()
 	return r
 }
 

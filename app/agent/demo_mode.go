@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand" //nolint:gosec
 	"time"
 
 	log "github.com/go-pkgz/lgr"

@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
+	log "github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/mongo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	log "github.com/go-pkgz/lgr"
 
 	"github.com/umputun/dkll/app/core"
 )
@@ -69,8 +69,9 @@ func TestServer(t *testing.T) {
 
 	b, err := ioutil.ReadFile("/tmp/dkll-test/dkll.log")
 	assert.NoError(t, err)
-	expMerged := "2017-05-30 15:13:35 -0500 CDT : BigMac." +
-		"local/cont1 [63415] - message 123\n2019-05-30 16:49:03 -0500 CDT : BigMac.local/cont2 [63416] - message blah\n"
+	expMerged := fmt.Sprintf("2017-05-30 15:13:35 -0500 CDT : BigMac."+
+		"local/cont1 [63415] - message 123\n%d-05-30 16:49:03 -0500 CDT : BigMac.local/cont2 [63416] - message blah\n",
+		time.Now().Year())
 	assert.Equal(t, expMerged, string(b))
 
 	b, err = ioutil.ReadFile("/tmp/dkll-test/BigMac.local/cont1.log")

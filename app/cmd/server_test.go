@@ -13,9 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/globalsign/mgo"
 	log "github.com/go-pkgz/lgr"
-	"github.com/go-pkgz/mongo"
+	"github.com/go-pkgz/mongo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -24,20 +23,21 @@ import (
 
 func TestServer(t *testing.T) {
 	log.Printf("start server test")
-	mg, err := mongo.NewServer(mgo.DialInfo{Addrs: []string{"127.0.0.1:27017"}, Database: "test"}, mongo.ServerParams{})
-	require.NoError(t, err)
-	mgConn := mongo.NewConnection(mg, "test", "msgs")
-	cleanupTestAssets(t, "/tmp/dkll-test", mgConn)
-	defer cleanupTestAssets(t, "/tmp/dkll-test", mgConn)
+
+	_, coll, teardown := mongo.MakeTestConnection(t)
+	defer teardown()
+	// m, err := server.NewMongo(mg, server.MongoParams{DBName: "test", Collection: coll.Name()})
+	// require.NoError(t, err)
+
+	os.RemoveAll("/tmp/dkll-test")
 
 	opts := ServerOpts{
 		Port:               8080,
 		SyslogPort:         15514,
-		Mongo:              []string{"127.0.0.1:27017"},
-		MongoDB:            "test",
-		MongoColl:          "msgs",
+		MongoURL:           getMongoURL(t) + "?db=test&collection=" + coll.Name(),
 		EnableMerged:       true,
 		FileBackupLocation: "/tmp/dkll-test",
+		MongoMaxDocs:       100,
 	}
 	s := ServerCmd{ServerOpts: opts}
 
@@ -114,9 +114,14 @@ func TestServer(t *testing.T) {
 	log.Printf("start wait completed")
 }
 
-func cleanupTestAssets(_ *testing.T, loc string, conn *mongo.Connection) {
-	_ = os.RemoveAll(loc)
-	_ = conn.WithCollection(func(coll *mgo.Collection) error {
-		return coll.DropCollection()
-	})
+func getMongoURL(t *testing.T) string {
+	mongoURL := os.Getenv("MONGO_TEST")
+	if mongoURL == "" {
+		mongoURL = "mongodb://mongo:27017"
+		t.Logf("no MONGO_TEST in env, defaulted to %s", mongoURL)
+	}
+	if mongoURL == "skip" {
+		t.Skip("skip mongo test")
+	}
+	return mongoURL
 }

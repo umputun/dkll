@@ -72,6 +72,9 @@ issues:
     - text: "at least one file in a package should have a package comment"
       linters:
         - stylecheck
+    - text: "whyNoLint: include an explanation for nolint directive"
+      linters:
+        - gocritic
   exclude-use-default: false
 
 service:

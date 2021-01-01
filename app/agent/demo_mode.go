@@ -3,7 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
-	"math/rand" //nolint:gosec just a demo
+	"math/rand" //nolint:gosec
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -27,11 +27,11 @@ func (d *DemoEmitter) Logs(o docker.LogsOptions) error {
 			var line string
 			switch o.Container {
 			case "nginx":
-				line = nginxDemo[rand.Intn(len(nginxDemo)-1)] //nolint:gosec just a demo
+				line = nginxDemo[rand.Intn(len(nginxDemo)-1)] //nolint:gosec
 			case "rest":
-				line = restDemo[rand.Intn(len(restDemo)-1)] //nolint:gosec just a demo
+				line = restDemo[rand.Intn(len(restDemo)-1)] //nolint:gosec
 			case "mongo":
-				line = mongoDemo[rand.Intn(len(mongoDemo)-1)] //nolint:gosec just a demo
+				line = mongoDemo[rand.Intn(len(mongoDemo)-1)] //nolint:gosec
 
 			}
 

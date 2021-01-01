@@ -106,7 +106,7 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 
 	var mentry mongoLogEntry
 	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
-	res := coll.FindOne(context.TODO(), bson.M{}, options.FindOne().SetSort(bson.D{{"_id", -1}}))
+	res := coll.FindOne(context.TODO(), bson.M{}, options.FindOne().SetSort(bson.D{{Key: "_id", Value: -1}}))
 	if err := res.Decode(&mentry); err != nil {
 		return core.LogEntry{}, nil
 	}
@@ -133,9 +133,9 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 	var mresult []mongoLogEntry
 	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
 
-	sortOpt := bson.D{{"_id", 1}}
+	sortOpt := bson.D{{Key: "_id", Value: 1}}
 	if req.LastID == "" || req.LastID == "0" {
-		sortOpt = bson.D{{"_id", -1}}
+		sortOpt = bson.D{{Key: "_id", Value: -1}}
 	}
 	cursor, e := coll.Find(context.TODO(), query, options.Find().SetLimit(int64(req.Limit)).SetSort(sortOpt))
 	if e != nil {
@@ -221,9 +221,9 @@ func (m *Mongo) init(collection string) error {
 	log.Printf("[INFO] create Collection %s", collection)
 
 	indexes := []mdrv.IndexModel{
-		{Keys: bson.D{{"host", 1}, {"container", 1}, {"ts", 1}}},
-		{Keys: bson.D{{"ts", 1}, {"host", 1}, {"container", 1}}},
-		{Keys: bson.D{{"container", 1}, {"ts", 1}}},
+		{Keys: bson.D{{Key: "host", Value: 1}, {Key: "container", Value: 1}, {Key: "ts", Value: 1}}},
+		{Keys: bson.D{{Key: "ts", Value: 1}, {Key: "host", Value: 1}, {Key: "container", Value: 1}}},
+		{Keys: bson.D{{Key: "container", Value: 1}, {Key: "ts", Value: 1}}},
 	}
 
 	err := m.Client.Database(m.MongoParams.DBName).CreateCollection(context.Background(), m.MongoParams.Collection,

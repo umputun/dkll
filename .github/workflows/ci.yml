@@ -27,12 +27,13 @@ jobs:
 
       - name: build and test
         run: |
-          export GO111MODULE=on
-          export TZ="America/Chicago"
-          export MONGO_TEST=mongodb://127.0.0.1:27017
-          go get -v
           go test -timeout=60s -v -covermode=count -coverprofile=$GITHUB_WORKSPACE/profile.cov_tmp
           cat $GITHUB_WORKSPACE/profile.cov_tmp | grep -v "_mock.go" > $GITHUB_WORKSPACE/profile.cov
+        working-directory: app
+        env:
+          GOFLAGS: "-mod=vendor"
+          TZ: "America/Chicago"
+          MONGO_TEST: mongodb://127.0.0.1:27017
 
       - name: install golangci-lint and goveralls
         run: |

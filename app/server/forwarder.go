@@ -80,15 +80,14 @@ func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.L
 		buffer := make([]core.LogEntry, 0, 1001)
 
 		// send buffer to publisher and file logger
-		writeBuff := func() (wrote int) {
+		writeBuff := func() {
 			if len(buffer) == 0 {
-				return 0
+				return
 			}
 
 			if err := f.Publisher.Publish(buffer); err != nil {
 				log.Printf("[WARN] failed to publish, error=%s", err)
 			}
-			wrote = len(buffer)
 			for _, r := range buffer {
 				if err := f.FileWriter.Write(r); err != nil {
 					log.Printf("[WARN] failed to write to logs, %v", err)
@@ -96,7 +95,6 @@ func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.L
 			}
 			log.Printf("[DEBUG] wrote %d entries", len(buffer))
 			buffer = buffer[0:0]
-			return wrote
 		}
 
 		ticks := time.NewTicker(time.Millisecond * 500)

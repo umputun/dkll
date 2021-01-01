@@ -1,4 +1,4 @@
-# DKLL ![build](https://github.com/umputun/dkll/workflows/build/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/umputun/dkll?12345)](https://goreportcard.com/report/github.com/umputun/dkll)  [![Coverage Status](https://coveralls.io/repos/github/umputun/dkll/badge.svg?branch=master)](https://coveralls.io/github/umputun/dkll?branch=master) [![Docker Automated build](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/umputun/dkll/)
+# DKLL [![build](https://github.com/umputun/dkll/workflows/build/badge.svg)](https://github.com/umputun/dkll/actions?query=workflow%3Abuild) [![Go Report Card](https://goreportcard.com/badge/github.com/umputun/dkll?12345)](https://goreportcard.com/report/github.com/umputun/dkll)  [![Coverage Status](https://coveralls.io/repos/github/umputun/dkll/badge.svg?branch=master)](https://coveralls.io/github/umputun/dkll?branch=master) [![Docker Automated build](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/umputun/dkll/)
 
 
 Logging server, agent and CLI client for dockerized infrastructure. 

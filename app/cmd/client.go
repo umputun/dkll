@@ -56,7 +56,7 @@ func (c ClientCmd) Run(ctx context.Context) error {
 
 	display := client.DisplayParams{
 		ShowPid:    c.ShowPid,
-		ShowTs:     c.ShowTS,
+		ShowTS:     c.ShowTS,
 		FollowMode: c.FollowMode,
 		TailMode:   c.TailMode,
 		ShowSyslog: c.ShowSyslog,

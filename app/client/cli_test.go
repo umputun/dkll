@@ -42,7 +42,7 @@ func TestCliWithPidAndTS(t *testing.T) {
 
 	out := bytes.Buffer{}
 
-	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, ShowPid: true, ShowTs: true})
+	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, ShowPid: true, ShowTS: true})
 	_, err := c.Activate(context.Background(), core.Request{})
 	require.NoError(t, err)
 	exp := "h1:c1 - 2019-05-24 20:54:30 [0] - msg1\nh1:c2 - 2019-05-24 20:54:31 [0] - msg2\n" +
@@ -60,7 +60,7 @@ func TestCliWithCustomTZ(t *testing.T) {
 
 	tz, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
-	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, TimeZone: tz, ShowTs: true})
+	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, TimeZone: tz, ShowTS: true})
 	_, err = c.Activate(context.Background(), core.Request{})
 	require.NoError(t, err)
 	exp := "h1:c1 - 2019-05-24 21:54:30 - msg1\nh1:c2 - 2019-05-24 21:54:31 - msg2\nh2:c1 - 2019-05-24 21:54:32 - msg3\n" +

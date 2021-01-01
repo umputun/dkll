@@ -39,7 +39,7 @@ type APIParams struct {
 // DisplayParams customizes how records will be showed
 type DisplayParams struct {
 	ShowPid    bool           // include pid
-	ShowTs     bool           // include time stamp as "2006-01-02 15:04:05.999999" in given TZ
+	ShowTS     bool           // include time stamp as "2006-01-02 15:04:05.999999" in given TZ
 	FollowMode bool           // follow mode, like -f in grep
 	TailMode   bool           // tail mode, like -t in grep
 	ShowSyslog bool           // show non-docker messages from syslog, off by default
@@ -133,7 +133,7 @@ func (c *CLI) makeOutLine(e core.LogEntry) (string, bool) {
 	}
 
 	ts := ""
-	if c.ShowTs {
+	if c.ShowTS {
 		ts = fmt.Sprintf(" - %s", e.TS.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
 	}
 	line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))

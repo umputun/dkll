@@ -134,7 +134,7 @@ func (c *CLI) makeOutLine(e core.LogEntry) (string, bool) {
 
 	ts := ""
 	if c.ShowTs {
-		ts = fmt.Sprintf(" - %s", e.Ts.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
+		ts = fmt.Sprintf(" - %s", e.TS.In(c.TimeZone).Format("2006-01-02 15:04:05.999999"))
 	}
 	line := fmt.Sprintf("%s:%s%s%s - %s\n", red(e.Host), green(e.Container), yellow(ts), yellow(pid), white(e.Msg))
 	return line, true

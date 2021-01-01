@@ -16,8 +16,8 @@ type LogEntry struct {
 	Container string    `json:"container"`
 	Pid       int       `json:"pid"`
 	Msg       string    `json:"msg"`
-	Ts        time.Time `json:"ts"`
-	CreatedTs time.Time `json:"cts"`
+	TS        time.Time `json:"ts"`
+	CreatedTS time.Time `json:"cts"`
 }
 
 // NewEntry makes the LogEntry from a log line.
@@ -28,9 +28,9 @@ func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 		return entry, fmt.Errorf("line is too short, line=[%s]", line)
 	}
 
-	entry = LogEntry{Container: "syslog", Pid: 0, CreatedTs: time.Now()}
+	entry = LogEntry{Container: "syslog", Pid: 0, CreatedTS: time.Now()}
 
-	entry.Ts, line, err = parseTime(line, tz)
+	entry.TS, line, err = parseTime(line, tz)
 	if err != nil {
 		return entry, err
 	}
@@ -82,5 +82,5 @@ func parseTime(line string, tz *time.Location) (ts time.Time, trimmedLine string
 }
 
 func (entry LogEntry) String() string {
-	return fmt.Sprintf("%s : %s/%s [%d] - %s", entry.Ts.In(time.Local), entry.Host, entry.Container, entry.Pid, entry.Msg)
+	return fmt.Sprintf("%s : %s/%s [%d] - %s", entry.TS.In(time.Local), entry.Host, entry.Container, entry.Pid, entry.Msg)
 }

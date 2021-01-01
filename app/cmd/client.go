@@ -17,7 +17,7 @@ type ClientOpts struct {
 	Containers []string `short:"c" description:"show container(s) only"`
 	Hosts      []string `short:"h" description:"show host(s) only"`
 	Excludes   []string `short:"x" description:"exclude container(s)"`
-	ShowTs     bool     `short:"m" description:"show syslog timestamp"`
+	ShowTS     bool     `short:"m" description:"show syslog timestamp"`
 	ShowPid    bool     `short:"p" description:"show pid"`
 	ShowSyslog bool     `short:"s" description:"show syslog messages"`
 	FollowMode bool     `short:"f" description:"follow mode"`
@@ -56,7 +56,7 @@ func (c ClientCmd) Run(ctx context.Context) error {
 
 	display := client.DisplayParams{
 		ShowPid:    c.ShowPid,
-		ShowTs:     c.ShowTs,
+		ShowTS:     c.ShowTS,
 		FollowMode: c.FollowMode,
 		TailMode:   c.TailMode,
 		ShowSyslog: c.ShowSyslog,

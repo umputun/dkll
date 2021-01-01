@@ -25,7 +25,7 @@ func TestClient(t *testing.T) {
 	c := ClientCmd{ClientOpts{
 		API:      ts.URL + "/v1",
 		TimeZone: "America/New_York",
-		ShowTs:   true,
+		ShowTS:   true,
 	}}
 
 	lgr.Out(ioutil.Discard)
@@ -67,12 +67,12 @@ func prepTestServer(t *testing.T) *httptest.Server {
 
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			recs := []core.LogEntry{
-				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)},
 			}
 			err = json.NewEncoder(w).Encode(recs)
 			require.NoError(t, err)
@@ -82,7 +82,7 @@ func prepTestServer(t *testing.T) *httptest.Server {
 		if r.URL.Path == "/v1/last" && r.Method == "GET" {
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			rec := core.LogEntry{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1",
-				Msg: "msg1", Ts: ts.Add(5 * time.Second)}
+				Msg: "msg1", TS: ts.Add(5 * time.Second)}
 			err := json.NewEncoder(w).Encode(&rec)
 			require.NoError(t, err)
 		}

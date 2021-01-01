@@ -9,9 +9,12 @@ import (
 	"path"
 	"time"
 
-	"github.com/globalsign/mgo"
-	"gopkg.in/natefinch/lumberjack.v2"
 	log "github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/mongo/v2"
+	"github.com/pkg/errors"
+	mdrv "go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/umputun/dkll/app/server"
 )
@@ -20,13 +23,8 @@ import (
 type ServerOpts struct {
 	Port               int           `long:"api-port" env:"API_PORT" default:"8080" description:"rest server port"`
 	SyslogPort         int           `long:"syslog-port" env:"SYSLOG_PORT" default:"5514" description:"syslog server port"`
-	Mongo              []string      `long:"mongo" env:"MONGO" required:"true" env-delim:"," description:"mongo host:port"`
-	MongoUser          string        `long:"mongo-user" env:"MONGO_USER" default:"admin" description:"mongo user for auth"`
-	MongoPasswd        string        `long:"mongo-passwd" env:"MONGO_PASSWD" default:"" description:"mongo password"`
-	MongoDelay         time.Duration `long:"mongo-delay" env:"MONGO_DELAY" default:"0s" description:"mongo initial delay"`
+	MongoURL           string        `long:"mongo" env:"MONGO" required:"true" env-delim:"," description:"mongo host:port"`
 	MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
-	MongoDB            string        `long:"mongo-db" env:"MONGO_DB" default:"dkll" description:"mongo database name"`
-	MongoColl          string        `long:"mongo-coll" env:"MONGO_COLL" default:"msgs" description:"mongo collection name"`
 	MongoMaxSize       int           `long:"mongo-size" env:"MONGO_SIZE" default:"10000000000" description:"max collection size"`
 	MongoMaxDocs       int           `long:"mongo-docs" env:"MONGO_DOCS" default:"50000000" description:"max docs in collection"`
 	FileBackupLocation string        `long:"backup" default:"" env:"BACK_LOG" description:"backup log files location"`
@@ -61,22 +59,13 @@ func (s ServerCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	dial := mgo.DialInfo{
-		Addrs:    s.Mongo,
-		AppName:  "dkll",
-		Timeout:  s.MongoTimeout,
-		Database: "admin",
+	mclient, ex, err := makeMongoClient(s.MongoURL, s.MongoTimeout)
+	if err != nil {
+		return errors.Wrap(err, "can't make mongo client")
 	}
-
-	if s.MongoPasswd != "" {
-		dial.Username = s.MongoUser
-		dial.Password = s.MongoPasswd
-		log.Printf("[INFO] mongo auth enforced with user %s", s.MongoUser)
-	}
-
-	mgParams := server.MongoParams{DBName: s.MongoDB, Collection: s.MongoColl, Delay: s.MongoDelay,
+	mgParams := server.MongoParams{DBName: ex["db"].(string), Collection: ex["collection"].(string),
 		MaxDocs: s.MongoMaxDocs, MaxCollectionSize: s.MongoMaxSize}
-	mg, err := server.NewMongo(dial, mgParams)
+	mg, err := server.NewMongo(mclient, mgParams)
 	if err != nil {
 		return err
 	}
@@ -103,6 +92,23 @@ func (s ServerCmd) Run(ctx context.Context) error {
 	log.Printf("[WARN] forwarder terminated, %v", forwarder.Run(ctx)) // blocking on forwarder
 
 	return nil
+}
+
+func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[string]interface{}, error) {
+	log.Printf("[DEBUG] make mongo client for %q", mongoURL)
+	if mongoURL == "" {
+		return nil, nil, errors.New("no mongo URL provided")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	client, ex, err := mongo.Connect(ctx, options.Client().
+		SetAppName("dkll-server").SetConnectTimeout(timeout), mongoURL, "db", "collection")
+
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "can't connect to mongo %s", mongoURL)
+	}
+	return client, ex, nil
 }
 
 func (s ServerCmd) makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err error) {

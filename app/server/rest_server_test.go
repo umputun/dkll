@@ -154,19 +154,19 @@ func (m *mockDataService) Find(req core.Request) ([]core.LogEntry, error) {
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 	tsOffset := time.Minute * time.Duration(atomic.LoadInt32(&m.repeats)-1)
 	recs := []core.LogEntry{
-		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0*time.Second + tsOffset)},
-		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1*time.Second + tsOffset)},
-		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2*time.Second + tsOffset)},
-		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3*time.Second + tsOffset)},
-		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4*time.Second + tsOffset)},
-		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4*time.Second + tsOffset)},
+		{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5*time.Second + tsOffset)},
 	}
 	return recs, nil
 }
 
 func (m *mockDataService) LastPublished() (entry core.LogEntry, err error) {
 	ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
-	return core.LogEntry{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)}, nil
+	return core.LogEntry{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)}, nil
 }
 
 func (m *mockDataService) getReq() core.Request {

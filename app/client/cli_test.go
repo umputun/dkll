@@ -42,7 +42,7 @@ func TestCliWithPidAndTS(t *testing.T) {
 
 	out := bytes.Buffer{}
 
-	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, ShowPid: true, ShowTs: true})
+	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, ShowPid: true, ShowTS: true})
 	_, err := c.Activate(context.Background(), core.Request{})
 	require.NoError(t, err)
 	exp := "h1:c1 - 2019-05-24 20:54:30 [0] - msg1\nh1:c2 - 2019-05-24 20:54:31 [0] - msg2\n" +
@@ -60,7 +60,7 @@ func TestCliWithCustomTZ(t *testing.T) {
 
 	tz, err := time.LoadLocation("America/New_York")
 	require.NoError(t, err)
-	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, TimeZone: tz, ShowTs: true})
+	c := NewCLI(APIParams{API: ts.URL + "/v1", Client: &http.Client{}}, DisplayParams{Out: &out, TimeZone: tz, ShowTS: true})
 	_, err = c.Activate(context.Background(), core.Request{})
 	require.NoError(t, err)
 	exp := "h1:c1 - 2019-05-24 21:54:30 - msg1\nh1:c2 - 2019-05-24 21:54:31 - msg2\nh2:c1 - 2019-05-24 21:54:32 - msg3\n" +
@@ -101,7 +101,7 @@ func TestLastID(t *testing.T) {
 			}
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			rec := core.LogEntry{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1",
-				Msg: "msg1", Ts: ts.Add(0 * time.Second)}
+				Msg: "msg1", TS: ts.Add(0 * time.Second)}
 
 			err := json.NewEncoder(w).Encode(&rec)
 			require.NoError(t, err)
@@ -141,12 +141,12 @@ func TestCliFindFailedAndRestored(t *testing.T) {
 		if r.URL.Path == "/v1/find" && r.Method == "POST" {
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			recs := []core.LogEntry{
-				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)},
 			}
 			err := json.NewEncoder(w).Encode(recs)
 			require.NoError(t, err)
@@ -198,7 +198,7 @@ func TestCliFindFollow(t *testing.T) {
 				{
 					ID:   fmt.Sprintf("5ce8718aef1d7346a5443a1%d", c),
 					Host: "h1", Container: "c1", Msg: fmt.Sprintf("msg%d", c),
-					Ts: ts.Add(time.Duration(c) * time.Second),
+					TS: ts.Add(time.Duration(c) * time.Second),
 				},
 			}
 			require.NoError(t, json.NewEncoder(w).Encode(recs))
@@ -237,7 +237,7 @@ func TestCliFindFollowWithDelay(t *testing.T) {
 				{
 					ID:   fmt.Sprintf("5ce8718aef1d7346a5443a1%d", c),
 					Host: "h1", Container: "c1", Msg: fmt.Sprintf("msg%d", c),
-					Ts: ts.Add(time.Duration(c) * time.Second),
+					TS: ts.Add(time.Duration(c) * time.Second),
 				},
 			}
 			require.NoError(t, json.NewEncoder(w).Encode(recs))
@@ -269,7 +269,7 @@ func TestCliFindTail(t *testing.T) {
 		if r.URL.Path == "/v1/last" && r.Method == "GET" {
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			rec := core.LogEntry{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1",
-				Msg: "msg1", Ts: ts.Add(5 * time.Second)}
+				Msg: "msg1", TS: ts.Add(5 * time.Second)}
 			err := json.NewEncoder(w).Encode(&rec)
 			require.NoError(t, err)
 		}
@@ -286,7 +286,7 @@ func TestCliFindTail(t *testing.T) {
 			require.Equal(t, "5ce8718aef1d7346a5443a1f", req.LastID)
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			recs := []core.LogEntry{{ID: "5ce8718aef1d7346a5443a12f", Host: "h1", Container: "c1",
-				Msg: "msg1", Ts: ts.Add(15 * time.Second)}}
+				Msg: "msg1", TS: ts.Add(15 * time.Second)}}
 			require.NoError(t, json.NewEncoder(w).Encode(recs))
 		}
 	}))
@@ -349,12 +349,12 @@ func prepTestServer(t *testing.T) *httptest.Server {
 
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			recs := []core.LogEntry{
-				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", Ts: ts.Add(0 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", Ts: ts.Add(1 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", Ts: ts.Add(2 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", Ts: ts.Add(3 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", Ts: ts.Add(4 * time.Second)},
-				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", Ts: ts.Add(5 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1", Msg: "msg1", TS: ts.Add(0 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a2f", Host: "h1", Container: "c2", Msg: "msg2", TS: ts.Add(1 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a3f", Host: "h2", Container: "c1", Msg: "msg3", TS: ts.Add(2 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a4f", Host: "h1", Container: "c1", Msg: "msg4", TS: ts.Add(3 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a5f", Host: "h1", Container: "c2", Msg: "msg5", TS: ts.Add(4 * time.Second)},
+				{ID: "5ce8718aef1d7346a5443a6f", Host: "h2", Container: "c2", Msg: "msg6", TS: ts.Add(5 * time.Second)},
 			}
 			err = json.NewEncoder(w).Encode(recs)
 			require.NoError(t, err)
@@ -364,7 +364,7 @@ func prepTestServer(t *testing.T) *httptest.Server {
 		if r.URL.Path == "/v1/last" && r.Method == "GET" {
 			ts := time.Date(2019, 5, 24, 20, 54, 30, 0, time.Local)
 			rec := core.LogEntry{ID: "5ce8718aef1d7346a5443a1f", Host: "h1", Container: "c1",
-				Msg: "msg1", Ts: ts.Add(5 * time.Second)}
+				Msg: "msg1", TS: ts.Add(5 * time.Second)}
 			err := json.NewEncoder(w).Encode(&rec)
 			require.NoError(t, err)
 		}

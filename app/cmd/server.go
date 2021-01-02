@@ -23,7 +23,7 @@ import (
 type ServerOpts struct {
 	Port               int           `long:"api-port" env:"API_PORT" default:"8080" description:"rest server port"`
 	SyslogPort         int           `long:"syslog-port" env:"SYSLOG_PORT" default:"5514" description:"syslog server port"`
-	MongoURL           string        `long:"mongo" env:"MONGO" required:"true" env-delim:"," description:"mongo host:port"`
+	MongoURL           string        `long:"mongo" env:"MONGO" required:"true" description:"mongo URL"`
 	MongoTimeout       time.Duration `long:"mongo-timeout" env:"MONGO_TIMEOUT" default:"5s" description:"mongo timeout"`
 	MongoMaxSize       int           `long:"mongo-size" env:"MONGO_SIZE" default:"10000000000" description:"max collection size"`
 	MongoMaxDocs       int           `long:"mongo-docs" env:"MONGO_DOCS" default:"50000000" description:"max docs in collection"`

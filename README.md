@@ -47,28 +47,24 @@ Help Options:
   -h, --help                             Show this help message
 
 [server command options]
-           --api-port=                    rest server port (default: 8080) [$API_PORT]
-           --syslog-port=                 syslog server port (default: 5514) [$SYSLOG_PORT]
-           --mongo=                       mongo host:port [$MONGO]
-           --mongo-passwd=                mongo password [$MONGO_PASSWD]
-           --mongo-delay=                 mongo initial delay (default: 0s) [$MONGO_DELAY]
-           --mongo-timeout=               mongo timeout (default: 5s) [$MONGO_TIMEOUT]
-           --mongo-db=                    mongo database name (default: dkll) [$MONGO_DB]
-           --mongo-coll=                  mongo collection name (default: msgs) [$MONGO_COLL]
-           --mongo-size=                  max collection size (default: 10000000000) [$MONGO_SIZE]
-           --mongo-docs=                  max docs in collection (default: 50000000) [$MONGO_DOCS]
-           --backup=                      backup log files location [$BACK_LOG]
-           --merged                       enable merged log file [$BACK_MRG]
- 
-     container:
-           --limit.container.max-size=    max log size, in megabytes (default: 100) [$MAX_SIZE]
-           --limit.container.max-backups= max number of rotated files (default: 10) [$MAX_BACKUPS]
-           --limit.container.max-age=     max age of rotated files (default: 30) [$MAX_AGE]
- 
-     merged:
-           --limit.merged.max-size=       max log size, in megabytes (default: 100) [$MAX_SIZE]
-           --limit.merged.max-backups=    max number of rotated files (default: 10) [$MAX_BACKUPS]
-           --limit.merged.max-age=        max age of rotated files (default: 30) [$MAX_AGE]
+      --api-port=                      rest server port (default: 8080) [$API_PORT]
+      --syslog-port=                   syslog server port (default: 5514) [$SYSLOG_PORT]
+      --mongo=                         mongo URL [$MONGO]
+      --mongo-timeout=                 mongo timeout (default: 5s) [$MONGO_TIMEOUT]
+      --mongo-size=                    max collection size (default: 10000000000) [$MONGO_SIZE]
+      --mongo-docs=                    max docs in collection (default: 50000000) [$MONGO_DOCS]
+      --backup=                        backup log files location [$BACK_LOG]
+      --merged                         enable merged log file [$BACK_MRG]
+
+    container:
+      --limit.container.max-size=      max log size, in megabytes (default: 100) [$MAX_SIZE]
+      --limit.container.max-backups=   max number of rotated files (default: 10) [$MAX_BACKUPS]
+      --limit.container.max-age=       max age of rotated files, days (default: 30) [$MAX_AGE]
+
+    merged:
+      --limit.merged.max-size=         max log size, in megabytes (default: 100) [$MAX_SIZE]
+      --limit.merged.max-backups=      max number of rotated files (default: 10) [$MAX_BACKUPS]
+      --limit.merged.max-age=          max age of rotated files, days (default: 30) [$MAX_AGE]
 ```
 
 - `mongo` address can be repeated multiple times or presented with `,` separator in environment

@@ -134,4 +134,7 @@ func TestMongo_Init(t *testing.T) {
 
 	_, err := NewMongo(mg, MongoParams{DBName: "test", Collection: "test_msgs"})
 	require.NoError(t, err)
+
+	_, err = NewMongo(mg, MongoParams{DBName: "test", Collection: "test_msgs"})
+	require.NoError(t, err)
 }

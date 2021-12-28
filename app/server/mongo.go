@@ -230,7 +230,7 @@ func (m *Mongo) init(collection string) error {
 		options.CreateCollection().SetCapped(true).SetSizeInBytes(int64(m.MaxCollectionSize)).
 			SetMaxDocuments(int64(m.MaxDocs)))
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return errors.Wrapf(err, "initilize collection %s with %+v", collection, m.MongoParams)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -187,7 +186,7 @@ func (c *CLI) getNext(ctx context.Context, request core.Request) (items []core.L
 			return errors.New("status")
 		}
 		defer func() { _ = resp.Body.Close() }() // nolint
-		body, e := ioutil.ReadAll(resp.Body)
+		body, e := io.ReadAll(resp.Body)
 		if e != nil {
 			return errors.Wrap(e, "can't read next response body")
 		}

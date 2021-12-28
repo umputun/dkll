@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"time"
@@ -114,8 +113,8 @@ func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[
 func (s ServerCmd) makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err error) {
 
 	// default loggers empty
-	wrf = func(instance, container string) io.Writer { return ioutil.Discard }
-	mergeLogWriter = ioutil.Discard
+	wrf = func(instance, container string) io.Writer { return io.Discard }
+	mergeLogWriter = io.Discard
 	if s.FileBackupLocation == "" {
 		return wrf, mergeLogWriter, nil
 	}
@@ -123,7 +122,7 @@ func (s ServerCmd) makeWriters() (wrf server.WritersFactory, mergeLogWriter io.W
 	log.Printf("[INFO] backup files location %s", s.FileBackupLocation)
 
 	if s.EnableMerged {
-		if e := os.MkdirAll(s.FileBackupLocation, 0750); e != nil {
+		if e := os.MkdirAll(s.FileBackupLocation, 0o750); e != nil {
 			return wrf, mergeLogWriter, e
 		}
 		mergeLogWriter = &lumberjack.Logger{
@@ -138,9 +137,9 @@ func (s ServerCmd) makeWriters() (wrf server.WritersFactory, mergeLogWriter io.W
 
 	wrf = func(instance, container string) io.Writer {
 		fname := path.Join(s.FileBackupLocation, instance, container+".log")
-		if err = os.MkdirAll(path.Dir(fname), 0750); err != nil {
+		if err = os.MkdirAll(path.Dir(fname), 0o750); err != nil {
 			log.Printf("[WARN] can't make directory %s, %v", path.Dir(fname), err)
-			return ioutil.Discard
+			return io.Discard
 		}
 		singleWriter := &lumberjack.Logger{
 			Filename:   fname,

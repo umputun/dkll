@@ -154,7 +154,7 @@ func (a AgentCmd) makeFileWriters(containerName, group string) (logWriter, errWr
 	if group != "" {
 		logDir = fmt.Sprintf("%s/%s", a.FilesLocation, group)
 	}
-	if err := os.MkdirAll(logDir, 0750); err != nil {
+	if err := os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, nil, errors.Wrapf(err, "failed to make logs directory %s", logDir)
 	}
 

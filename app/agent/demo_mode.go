@@ -35,7 +35,7 @@ func (d *DemoEmitter) Logs(o docker.LogsOptions) error {
 
 			}
 
-			if _, err := o.OutputStream.Write([]byte(fmt.Sprintf("%s\n", line))); err != nil {
+			if _, err := fmt.Fprintf(o.OutputStream, "%s\n", line); err != nil {
 				log.Printf("[WARN] demo log failed, %v", err)
 			}
 			n++

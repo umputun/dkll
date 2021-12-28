@@ -97,4 +97,4 @@ jobs:
               --build-arg CI=github --build-arg GITHUB_SHA=${GITHUB_SHA} --build-arg GIT_BRANCH=${ref} \
               --platform linux/amd64,linux/arm64 \
               -t ghcr.io/${USERNAME}/dkll:${ref} -t ghcr.io/${USERNAME}/dkll:latest \
-              -t ${USERNAME}/dkll:${ref} -t ${USERNAME}/sys-agent:latest .
+              -t ${USERNAME}/dkll:${ref} -t ${USERNAME}/dkll:latest .

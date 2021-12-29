@@ -20,7 +20,7 @@ import (
 const severityMask = 0x07
 const facilityMask = 0xf8
 const localDeadline = 20 * time.Millisecond
-const remoteDeadline = 50 * time.Millisecond
+const remoteDeadline = 250 * time.Millisecond
 
 // A builtinWriter is a connection to a syslog server.
 type builtinWriter struct {

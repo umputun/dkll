@@ -67,8 +67,7 @@ Help Options:
       --limit.merged.max-age=          max age of rotated files, days (default: 30) [$MAX_AGE]
 ```
 
-- `mongo` address can be repeated multiple times or presented with `,` separator in environment
-- `mongo-passwd` is optional but highly recommended. If defined dkll server authenticates as user `admin`
+- mongo URL specify the standard [mongodb connection string](https://docs.mongodb.com/manual/reference/connection-string/) with `db` and `collection` extra parameters, e.g. `mongodb://localhost:27017/admin?db=dkll&collection=logs` 
 - if `backup` defined dkll server will make `host/container.log` files in `backup` directory
 - `merged` parameter produces a single `dkll.log` file with all received records.
 

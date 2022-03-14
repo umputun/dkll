@@ -15,7 +15,7 @@ services:
         max-file: "5"
 
     environment:
-      - MONGO=mongo
+      - MONGO=mongodb://mongo:27017?db=dkll&collecion=logs
       - MONGO_DELAY=5s
       - BACK_LOG=/srv/logs
       - MONGO_PASSWD=${MONGO_PASSWD}

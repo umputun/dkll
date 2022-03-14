@@ -62,6 +62,12 @@ func (s ServerCmd) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "can't make mongo client")
 	}
+	if _, ok := ex["db"].(string); !ok {
+		return errors.New("can't find db in mongo url")
+	}
+	if _, ok := ex["collection"].(string); !ok {
+		return errors.New("can't find collection in mongo url")
+	}
 	mgParams := server.MongoParams{DBName: ex["db"].(string), Collection: ex["collection"].(string),
 		MaxDocs: s.MongoMaxDocs, MaxCollectionSize: s.MongoMaxSize}
 	mg, err := server.NewMongo(mclient, mgParams)

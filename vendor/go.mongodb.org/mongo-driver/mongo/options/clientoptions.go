@@ -109,6 +109,7 @@ type ClientOptions struct {
 	MaxConnIdleTime          *time.Duration
 	MaxPoolSize              *uint64
 	MinPoolSize              *uint64
+	MaxConnecting            *uint64
 	PoolMonitor              *event.PoolMonitor
 	Monitor                  *event.CommandMonitor
 	ServerMonitor            *event.ServerMonitor
@@ -310,6 +311,10 @@ func (c *ClientOptions) ApplyURI(uri string) *ClientOptions {
 
 	if cs.MinPoolSizeSet {
 		c.MinPoolSize = &cs.MinPoolSize
+	}
+
+	if cs.MaxConnectingSet {
+		c.MaxConnecting = &cs.MaxConnecting
 	}
 
 	if cs.ReadConcernLevel != "" {
@@ -580,6 +585,14 @@ func (c *ClientOptions) SetMaxPoolSize(u uint64) *ClientOptions {
 // the minimum. This can also be set through the "minPoolSize" URI option (e.g. "minPoolSize=100"). The default is 0.
 func (c *ClientOptions) SetMinPoolSize(u uint64) *ClientOptions {
 	c.MinPoolSize = &u
+	return c
+}
+
+// SetMaxConnecting specifies the maximum number of connections a connection pool may establish simultaneously. This can
+// also be set through the "maxConnecting" URI option (e.g. "maxConnecting=2"). If this is 0, the default is used. The
+// default is 2. Values greater than 100 are not recommended.
+func (c *ClientOptions) SetMaxConnecting(u uint64) *ClientOptions {
+	c.MaxConnecting = &u
 	return c
 }
 
@@ -859,6 +872,9 @@ func MergeClientOptions(opts ...*ClientOptions) *ClientOptions {
 		if opt.MinPoolSize != nil {
 			c.MinPoolSize = opt.MinPoolSize
 		}
+		if opt.MaxConnecting != nil {
+			c.MaxConnecting = opt.MaxConnecting
+		}
 		if opt.PoolMonitor != nil {
 			c.PoolMonitor = opt.PoolMonitor
 		}
@@ -985,7 +1001,8 @@ func addClientCertFromConcatenatedFile(cfg *tls.Config, certKeyFile, keyPassword
 // containing file and returns the certificate's subject name.
 func addClientCertFromBytes(cfg *tls.Config, data []byte, keyPasswd string) (string, error) {
 	var currentBlock *pem.Block
-	var certBlock, certDecodedBlock, keyBlock []byte
+	var certDecodedBlock []byte
+	var certBlocks, keyBlocks [][]byte
 
 	remaining := data
 	start := 0
@@ -996,7 +1013,8 @@ func addClientCertFromBytes(cfg *tls.Config, data []byte, keyPasswd string) (str
 		}
 
 		if currentBlock.Type == "CERTIFICATE" {
-			certBlock = data[start : len(data)-len(remaining)]
+			certBlock := data[start : len(data)-len(remaining)]
+			certBlocks = append(certBlocks, certBlock)
 			certDecodedBlock = currentBlock.Bytes
 			start += len(certBlock)
 		} else if strings.HasSuffix(currentBlock.Type, "PRIVATE KEY") {
@@ -1028,22 +1046,24 @@ func addClientCertFromBytes(cfg *tls.Config, data []byte, keyPasswd string) (str
 				}
 				var encoded bytes.Buffer
 				pem.Encode(&encoded, &pem.Block{Type: currentBlock.Type, Bytes: keyBytes})
-				keyBlock = encoded.Bytes()
+				keyBlock := encoded.Bytes()
+				keyBlocks = append(keyBlocks, keyBlock)
 				start = len(data) - len(remaining)
 			} else {
-				keyBlock = data[start : len(data)-len(remaining)]
+				keyBlock := data[start : len(data)-len(remaining)]
+				keyBlocks = append(keyBlocks, keyBlock)
 				start += len(keyBlock)
 			}
 		}
 	}
-	if len(certBlock) == 0 {
+	if len(certBlocks) == 0 {
 		return "", fmt.Errorf("failed to find CERTIFICATE")
 	}
-	if len(keyBlock) == 0 {
+	if len(keyBlocks) == 0 {
 		return "", fmt.Errorf("failed to find PRIVATE KEY")
 	}
 
-	cert, err := tls.X509KeyPair(certBlock, keyBlock)
+	cert, err := tls.X509KeyPair(bytes.Join(certBlocks, []byte("\n")), bytes.Join(keyBlocks, []byte("\n")))
 	if err != nil {
 		return "", err
 	}

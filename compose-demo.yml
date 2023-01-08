@@ -48,6 +48,7 @@ services:
       - EXCLUDE=dkll-agent,dkll-server,dkll-mongo
       - DEBUG=true
       - DEMO=true
+      - APP_UID=0 # run with root privileges
       - TIME_ZONE=America/Chicago
 
     volumes:

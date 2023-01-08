@@ -22,6 +22,7 @@ services:
       - MAX_SIZE=50
       - MAX_AGE=20
       - DEBUG=false
+      - APP_UID=0 # you can specify any userid with access to docker.sock or leave 0 to run with root access
     # - TIME_ZONE=America/Chicago
 
     volumes:

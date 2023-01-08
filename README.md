@@ -166,6 +166,7 @@ Help Options:
 - location of log files can be mapped to host via `volume`, ex: `- ./logs:/srv/logs` (see `compose-agent.yml`)
 - both `--exclude` and `--include` flags are optional and mutually exclusive, i.e. if `--exclude` defined `--include` not allowed, and vise versa.
 
+If you use the provided docker image, by default docker agent will run with `UID=1001`. Make sure that the access for docker socket granted for that user. Another way is specifing `APP_UID` environment variable for the agent container with either UID with docker privileges or `0` for running with root privileges.
 
 #### Demo mode
 

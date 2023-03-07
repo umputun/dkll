@@ -16,6 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsoncodec"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/internal"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
@@ -58,7 +59,7 @@ type aggregateParams struct {
 }
 
 func closeImplicitSession(sess *session.Client) {
-	if sess != nil && sess.SessionType == session.Implicit {
+	if sess != nil && sess.IsImplicit {
 		sess.EndSession()
 	}
 }
@@ -166,7 +167,7 @@ func (coll *Collection) Database() *Database {
 	return coll.db
 }
 
-// BulkWrite performs a bulk write operation (https://docs.mongodb.com/manual/core/bulk-write-operations/).
+// BulkWrite performs a bulk write operation (https://www.mongodb.com/docs/manual/core/bulk-write-operations/).
 //
 // The models parameter must be a slice of operations to be executed in this bulk write. It cannot be nil or empty.
 // All of the models must be non-nil. See the mongo.WriteModel documentation for a list of valid model types and
@@ -186,11 +187,7 @@ func (coll *Collection) BulkWrite(ctx context.Context, models []WriteModel,
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		var err error
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -218,6 +215,7 @@ func (coll *Collection) BulkWrite(ctx context.Context, models []WriteModel,
 	bwo := options.MergeBulkWriteOptions(opts...)
 
 	op := bulkWrite{
+		comment:                  bwo.Comment,
 		ordered:                  bwo.Ordered,
 		bypassDocumentValidation: bwo.BypassDocumentValidation,
 		models:                   models,
@@ -225,6 +223,7 @@ func (coll *Collection) BulkWrite(ctx context.Context, models []WriteModel,
 		collection:               coll,
 		selector:                 selector,
 		writeConcern:             wc,
+		let:                      bwo.Let,
 	}
 
 	err = op.execute(ctx)
@@ -252,11 +251,7 @@ func (coll *Collection) insert(ctx context.Context, documents []interface{},
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		var err error
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -280,10 +275,17 @@ func (coll *Collection) insert(ctx context.Context, documents []interface{},
 		ServerSelector(selector).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).
 		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).Ordered(true).
-		ServerAPI(coll.client.serverAPI)
+		ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout)
 	imo := options.MergeInsertManyOptions(opts...)
 	if imo.BypassDocumentValidation != nil && *imo.BypassDocumentValidation {
 		op = op.BypassDocumentValidation(*imo.BypassDocumentValidation)
+	}
+	if imo.Comment != nil {
+		comment, err := transformValue(coll.registry, imo.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		op = op.Comment(comment)
 	}
 	if imo.Ordered != nil {
 		op = op.Ordered(*imo.Ordered)
@@ -323,7 +325,7 @@ func (coll *Collection) insert(ctx context.Context, documents []interface{},
 //
 // The opts parameter can be used to specify options for the operation (see the options.InsertOneOptions documentation.)
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/insert/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/insert/.
 func (coll *Collection) InsertOne(ctx context.Context, document interface{},
 	opts ...*options.InsertOneOptions) (*InsertOneResult, error) {
 
@@ -332,6 +334,9 @@ func (coll *Collection) InsertOne(ctx context.Context, document interface{},
 
 	if ioOpts.BypassDocumentValidation != nil && *ioOpts.BypassDocumentValidation {
 		imOpts.SetBypassDocumentValidation(*ioOpts.BypassDocumentValidation)
+	}
+	if ioOpts.Comment != nil {
+		imOpts.SetComment(ioOpts.Comment)
 	}
 	res, err := coll.insert(ctx, []interface{}{document}, imOpts)
 
@@ -352,7 +357,7 @@ func (coll *Collection) InsertOne(ctx context.Context, document interface{},
 //
 // The opts parameter can be used to specify options for the operation (see the options.InsertManyOptions documentation.)
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/insert/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/insert/.
 func (coll *Collection) InsertMany(ctx context.Context, documents []interface{},
 	opts ...*options.InsertManyOptions) (*InsertManyResult, error) {
 
@@ -402,10 +407,7 @@ func (coll *Collection) delete(ctx context.Context, filter interface{}, deleteOn
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -450,9 +452,23 @@ func (coll *Collection) delete(ctx context.Context, filter interface{}, deleteOn
 		ServerSelector(selector).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).
 		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).Ordered(true).
-		ServerAPI(coll.client.serverAPI)
+		ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout)
+	if do.Comment != nil {
+		comment, err := transformValue(coll.registry, do.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		op = op.Comment(comment)
+	}
 	if do.Hint != nil {
 		op = op.Hint(true)
+	}
+	if do.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, do.Let, true, "let")
+		if err != nil {
+			return nil, err
+		}
+		op = op.Let(let)
 	}
 
 	// deleteMany cannot be retried
@@ -465,7 +481,7 @@ func (coll *Collection) delete(ctx context.Context, filter interface{}, deleteOn
 	if rr&expectedRr == 0 {
 		return nil, err
 	}
-	return &DeleteResult{DeletedCount: int64(op.Result().N)}, err
+	return &DeleteResult{DeletedCount: op.Result().N}, err
 }
 
 // DeleteOne executes a delete command to delete at most one document from the collection.
@@ -477,7 +493,7 @@ func (coll *Collection) delete(ctx context.Context, filter interface{}, deleteOn
 //
 // The opts parameter can be used to specify options for the operation (see the options.DeleteOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/delete/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/delete/.
 func (coll *Collection) DeleteOne(ctx context.Context, filter interface{},
 	opts ...*options.DeleteOptions) (*DeleteResult, error) {
 
@@ -493,7 +509,7 @@ func (coll *Collection) DeleteOne(ctx context.Context, filter interface{},
 //
 // The opts parameter can be used to specify options for the operation (see the options.DeleteOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/delete/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/delete/.
 func (coll *Collection) DeleteMany(ctx context.Context, filter interface{},
 	opts ...*options.DeleteOptions) (*DeleteResult, error) {
 
@@ -519,11 +535,7 @@ func (coll *Collection) updateOrReplace(ctx context.Context, filter bsoncore.Doc
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		var err error
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -547,10 +559,25 @@ func (coll *Collection) updateOrReplace(ctx context.Context, filter bsoncore.Doc
 		ServerSelector(selector).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).
 		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).Hint(uo.Hint != nil).
-		ArrayFilters(uo.ArrayFilters != nil).Ordered(true).ServerAPI(coll.client.serverAPI)
+		ArrayFilters(uo.ArrayFilters != nil).Ordered(true).ServerAPI(coll.client.serverAPI).
+		Timeout(coll.client.timeout)
+	if uo.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, uo.Let, true, "let")
+		if err != nil {
+			return nil, err
+		}
+		op = op.Let(let)
+	}
 
 	if uo.BypassDocumentValidation != nil && *uo.BypassDocumentValidation {
 		op = op.BypassDocumentValidation(*uo.BypassDocumentValidation)
+	}
+	if uo.Comment != nil {
+		comment, err := transformValue(coll.registry, uo.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		op = op.Comment(comment)
 	}
 	retry := driver.RetryNone
 	// retryable writes are only enabled updateOne/replaceOne operations
@@ -567,8 +594,8 @@ func (coll *Collection) updateOrReplace(ctx context.Context, filter bsoncore.Doc
 
 	opRes := op.Result()
 	res := &UpdateResult{
-		MatchedCount:  int64(opRes.N),
-		ModifiedCount: int64(opRes.NModified),
+		MatchedCount:  opRes.N,
+		ModifiedCount: opRes.NModified,
 		UpsertedCount: int64(len(opRes.Upserted)),
 	}
 	if len(opRes.Upserted) > 0 {
@@ -586,12 +613,12 @@ func (coll *Collection) updateOrReplace(ctx context.Context, filter bsoncore.Doc
 // the operation will succeed and an UpdateResult with a MatchedCount of 0 will be returned.
 //
 // The update parameter must be a document containing update operators
-// (https://docs.mongodb.com/manual/reference/operator/update/) and can be used to specify the modifications to be
+// (https://www.mongodb.com/docs/manual/reference/operator/update/) and can be used to specify the modifications to be
 // made to the selected document. It cannot be nil or empty.
 //
 // The opts parameter can be used to specify options for the operation (see the options.UpdateOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/update/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/update/.
 func (coll *Collection) UpdateByID(ctx context.Context, id interface{}, update interface{},
 	opts ...*options.UpdateOptions) (*UpdateResult, error) {
 	if id == nil {
@@ -608,12 +635,12 @@ func (coll *Collection) UpdateByID(ctx context.Context, id interface{}, update i
 // matched set and MatchedCount will equal 1.
 //
 // The update parameter must be a document containing update operators
-// (https://docs.mongodb.com/manual/reference/operator/update/) and can be used to specify the modifications to be
+// (https://www.mongodb.com/docs/manual/reference/operator/update/) and can be used to specify the modifications to be
 // made to the selected document. It cannot be nil or empty.
 //
 // The opts parameter can be used to specify options for the operation (see the options.UpdateOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/update/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/update/.
 func (coll *Collection) UpdateOne(ctx context.Context, filter interface{}, update interface{},
 	opts ...*options.UpdateOptions) (*UpdateResult, error) {
 
@@ -636,12 +663,12 @@ func (coll *Collection) UpdateOne(ctx context.Context, filter interface{}, updat
 // with a MatchedCount of 0 will be returned.
 //
 // The update parameter must be a document containing update operators
-// (https://docs.mongodb.com/manual/reference/operator/update/) and can be used to specify the modifications to be made
+// (https://www.mongodb.com/docs/manual/reference/operator/update/) and can be used to specify the modifications to be made
 // to the selected documents. It cannot be nil or empty.
 //
 // The opts parameter can be used to specify options for the operation (see the options.UpdateOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/update/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/update/.
 func (coll *Collection) UpdateMany(ctx context.Context, filter interface{}, update interface{},
 	opts ...*options.UpdateOptions) (*UpdateResult, error) {
 
@@ -665,11 +692,11 @@ func (coll *Collection) UpdateMany(ctx context.Context, filter interface{}, upda
 // selected from the matched set and MatchedCount will equal 1.
 //
 // The replacement parameter must be a document that will be used to replace the selected document. It cannot be nil
-// and cannot contain any update operators (https://docs.mongodb.com/manual/reference/operator/update/).
+// and cannot contain any update operators (https://www.mongodb.com/docs/manual/reference/operator/update/).
 //
 // The opts parameter can be used to specify options for the operation (see the options.ReplaceOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/update/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/update/.
 func (coll *Collection) ReplaceOne(ctx context.Context, filter interface{},
 	replacement interface{}, opts ...*options.ReplaceOptions) (*UpdateResult, error) {
 
@@ -693,11 +720,16 @@ func (coll *Collection) ReplaceOne(ctx context.Context, filter interface{},
 
 	updateOptions := make([]*options.UpdateOptions, 0, len(opts))
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		uOpts := options.Update()
 		uOpts.BypassDocumentValidation = opt.BypassDocumentValidation
 		uOpts.Collation = opt.Collation
 		uOpts.Upsert = opt.Upsert
 		uOpts.Hint = opt.Hint
+		uOpts.Let = opt.Let
+		uOpts.Comment = opt.Comment
 		updateOptions = append(updateOptions, uOpts)
 	}
 
@@ -709,12 +741,12 @@ func (coll *Collection) ReplaceOne(ctx context.Context, filter interface{},
 // The pipeline parameter must be an array of documents, each representing an aggregation stage. The pipeline cannot
 // be nil but can be empty. The stage documents must all be non-nil. For a pipeline of bson.D documents, the
 // mongo.Pipeline type can be used. See
-// https://docs.mongodb.com/manual/reference/operator/aggregation-pipeline/#db-collection-aggregate-stages for a list of
+// https://www.mongodb.com/docs/manual/reference/operator/aggregation-pipeline/#db-collection-aggregate-stages for a list of
 // valid stages in aggregations.
 //
 // The opts parameter can be used to specify options for the operation (see the options.AggregateOptions documentation.)
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/aggregate/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/aggregate/.
 func (coll *Collection) Aggregate(ctx context.Context, pipeline interface{},
 	opts ...*options.AggregateOptions) (*Cursor, error) {
 	a := aggregateParams{
@@ -735,9 +767,8 @@ func (coll *Collection) Aggregate(ctx context.Context, pipeline interface{},
 	return aggregate(a)
 }
 
-// aggreate is the helper method for Aggregate
-func aggregate(a aggregateParams) (*Cursor, error) {
-
+// aggregate is the helper method for Aggregate
+func aggregate(a aggregateParams) (cur *Cursor, err error) {
 	if a.ctx == nil {
 		a.ctx = context.Background()
 	}
@@ -748,11 +779,14 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 	}
 
 	sess := sessionFromContext(a.ctx)
-	if sess == nil && a.client.sessionPool != nil {
-		sess, err = session.NewClientSession(a.client.sessionPool, a.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
+	// Always close any created implicit sessions if aggregate returns an error.
+	defer func() {
+		if err != nil && sess != nil {
+			closeImplicitSession(sess)
 		}
+	}()
+	if sess == nil && a.client.sessionPool != nil {
+		sess = session.NewImplicitClientSession(a.client.sessionPool, a.client.id)
 	}
 	if err = a.client.validSession(sess); err != nil {
 		return nil, err
@@ -793,7 +827,9 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 		Deployment(a.client.deployment).
 		Crypt(a.client.cryptFLE).
 		ServerAPI(a.client.serverAPI).
-		HasOutputStage(hasOutputStage)
+		HasOutputStage(hasOutputStage).
+		Timeout(a.client.timeout).
+		MaxTime(ao.MaxTime)
 
 	if ao.AllowDiskUse != nil {
 		op.AllowDiskUse(*ao.AllowDiskUse)
@@ -809,19 +845,21 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 	if ao.Collation != nil {
 		op.Collation(bsoncore.Document(ao.Collation.ToDocument()))
 	}
-	if ao.MaxTime != nil {
-		op.MaxTimeMS(int64(*ao.MaxTime / time.Millisecond))
-	}
 	if ao.MaxAwaitTime != nil {
 		cursorOpts.MaxTimeMS = int64(*ao.MaxAwaitTime / time.Millisecond)
 	}
 	if ao.Comment != nil {
 		op.Comment(*ao.Comment)
+
+		commentVal, err := transformValue(a.registry, ao.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		cursorOpts.Comment = commentVal
 	}
 	if ao.Hint != nil {
 		hintVal, err := transformValue(a.registry, ao.Hint, false, "hint")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Hint(hintVal)
@@ -829,10 +867,23 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 	if ao.Let != nil {
 		let, err := transformBsoncoreDocument(a.registry, ao.Let, true, "let")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Let(let)
+	}
+	if ao.Custom != nil {
+		// Marshal all custom options before passing to the aggregate operation. Return
+		// any errors from Marshaling.
+		customOptions := make(map[string]bsoncore.Value)
+		for optionName, optionValue := range ao.Custom {
+			bsonType, bsonData, err := bson.MarshalValueWithRegistry(a.registry, optionValue)
+			if err != nil {
+				return nil, err
+			}
+			optionValueBSON := bsoncore.Value{Type: bsonType, Data: bsonData}
+			customOptions[optionName] = optionValueBSON
+		}
+		op.CustomOptions(customOptions)
 	}
 
 	retry := driver.RetryNone
@@ -843,7 +894,6 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 
 	err = op.Execute(a.ctx)
 	if err != nil {
-		closeImplicitSession(sess)
 		if wce, ok := err.(driver.WriteCommandError); ok && wce.WriteConcernError != nil {
 			return nil, *convertDriverWriteConcernError(wce.WriteConcernError)
 		}
@@ -852,7 +902,6 @@ func aggregate(a aggregateParams) (*Cursor, error) {
 
 	bc, err := op.Result(cursorOpts)
 	if err != nil {
-		closeImplicitSession(sess)
 		return nil, replaceErrors(err)
 	}
 	cursor, err := newCursorWithSession(bc, a.registry, sess)
@@ -883,10 +932,7 @@ func (coll *Collection) CountDocuments(ctx context.Context, filter interface{},
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return 0, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 	if err = coll.client.validSession(sess); err != nil {
@@ -901,12 +947,13 @@ func (coll *Collection) CountDocuments(ctx context.Context, filter interface{},
 	selector := makeReadPrefSelector(sess, coll.readSelector, coll.client.localThreshold)
 	op := operation.NewAggregate(pipelineArr).Session(sess).ReadConcern(rc).ReadPreference(coll.readPreference).
 		CommandMonitor(coll.client.monitor).ServerSelector(selector).ClusterClock(coll.client.clock).Database(coll.db.name).
-		Collection(coll.name).Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI)
+		Collection(coll.name).Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI).
+		Timeout(coll.client.timeout).MaxTime(countOpts.MaxTime)
 	if countOpts.Collation != nil {
 		op.Collation(bsoncore.Document(countOpts.Collation.ToDocument()))
 	}
-	if countOpts.MaxTime != nil {
-		op.MaxTimeMS(int64(*countOpts.MaxTime / time.Millisecond))
+	if countOpts.Comment != nil {
+		op.Comment(*countOpts.Comment)
 	}
 	if countOpts.Hint != nil {
 		hintVal, err := transformValue(coll.registry, countOpts.Hint, false, "hint")
@@ -950,7 +997,7 @@ func (coll *Collection) CountDocuments(ctx context.Context, filter interface{},
 // The opts parameter can be used to specify options for the operation (see the options.EstimatedDocumentCountOptions
 // documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/count/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/count/.
 func (coll *Collection) EstimatedDocumentCount(ctx context.Context,
 	opts ...*options.EstimatedDocumentCountOptions) (int64, error) {
 
@@ -962,10 +1009,7 @@ func (coll *Collection) EstimatedDocumentCount(ctx context.Context,
 
 	var err error
 	if sess == nil && coll.client.sessionPool != nil {
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return 0, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -979,16 +1023,23 @@ func (coll *Collection) EstimatedDocumentCount(ctx context.Context,
 		rc = nil
 	}
 
+	co := options.MergeEstimatedDocumentCountOptions(opts...)
+
 	selector := makeReadPrefSelector(sess, coll.readSelector, coll.client.localThreshold)
 	op := operation.NewCount().Session(sess).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).CommandMonitor(coll.client.monitor).
 		Deployment(coll.client.deployment).ReadConcern(rc).ReadPreference(coll.readPreference).
-		ServerSelector(selector).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI)
+		ServerSelector(selector).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI).
+		Timeout(coll.client.timeout).MaxTime(co.MaxTime)
 
-	co := options.MergeEstimatedDocumentCountOptions(opts...)
-	if co.MaxTime != nil {
-		op = op.MaxTimeMS(int64(*co.MaxTime / time.Millisecond))
+	if co.Comment != nil {
+		comment, err := transformValue(coll.registry, co.Comment, false, "comment")
+		if err != nil {
+			return 0, err
+		}
+		op = op.Comment(comment)
 	}
+
 	retry := driver.RetryNone
 	if coll.client.retryReads {
 		retry = driver.RetryOncePerCommand
@@ -996,7 +1047,6 @@ func (coll *Collection) EstimatedDocumentCount(ctx context.Context,
 	op.Retry(retry)
 
 	err = op.Execute(ctx)
-
 	return op.Result().N, replaceErrors(err)
 }
 
@@ -1009,7 +1059,7 @@ func (coll *Collection) EstimatedDocumentCount(ctx context.Context,
 //
 // The opts parameter can be used to specify options for the operation (see the options.DistinctOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/distinct/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/distinct/.
 func (coll *Collection) Distinct(ctx context.Context, fieldName string, filter interface{},
 	opts ...*options.DistinctOptions) ([]interface{}, error) {
 
@@ -1025,10 +1075,7 @@ func (coll *Collection) Distinct(ctx context.Context, fieldName string, filter i
 	sess := sessionFromContext(ctx)
 
 	if sess == nil && coll.client.sessionPool != nil {
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -1049,13 +1096,18 @@ func (coll *Collection) Distinct(ctx context.Context, fieldName string, filter i
 		Session(sess).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).CommandMonitor(coll.client.monitor).
 		Deployment(coll.client.deployment).ReadConcern(rc).ReadPreference(coll.readPreference).
-		ServerSelector(selector).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI)
+		ServerSelector(selector).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI).
+		Timeout(coll.client.timeout).MaxTime(option.MaxTime)
 
 	if option.Collation != nil {
 		op.Collation(bsoncore.Document(option.Collation.ToDocument()))
 	}
-	if option.MaxTime != nil {
-		op.MaxTimeMS(int64(*option.MaxTime / time.Millisecond))
+	if option.Comment != nil {
+		comment, err := transformValue(coll.registry, option.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		op.Comment(comment)
 	}
 	retry := driver.RetryNone
 	if coll.client.retryReads {
@@ -1098,9 +1150,9 @@ func (coll *Collection) Distinct(ctx context.Context, fieldName string, filter i
 //
 // The opts parameter can be used to specify options for the operation (see the options.FindOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/find/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/find/.
 func (coll *Collection) Find(ctx context.Context, filter interface{},
-	opts ...*options.FindOptions) (*Cursor, error) {
+	opts ...*options.FindOptions) (cur *Cursor, err error) {
 
 	if ctx == nil {
 		ctx = context.Background()
@@ -1112,17 +1164,18 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	}
 
 	sess := sessionFromContext(ctx)
-	if sess == nil && coll.client.sessionPool != nil {
-		var err error
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return nil, err
+	// Always close any created implicit sessions if Find returns an error.
+	defer func() {
+		if err != nil && sess != nil {
+			closeImplicitSession(sess)
 		}
+	}()
+	if sess == nil && coll.client.sessionPool != nil {
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 	}
 
 	err = coll.client.validSession(sess)
 	if err != nil {
-		closeImplicitSession(sess)
 		return nil, err
 	}
 
@@ -1131,16 +1184,17 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 		rc = nil
 	}
 
+	fo := options.MergeFindOptions(opts...)
+
 	selector := makeReadPrefSelector(sess, coll.readSelector, coll.client.localThreshold)
 	op := operation.NewFind(f).
 		Session(sess).ReadConcern(rc).ReadPreference(coll.readPreference).
 		CommandMonitor(coll.client.monitor).ServerSelector(selector).
 		ClusterClock(coll.client.clock).Database(coll.db.name).Collection(coll.name).
-		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI)
+		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).ServerAPI(coll.client.serverAPI).
+		Timeout(coll.client.timeout).MaxTime(fo.MaxTime)
 
-	fo := options.MergeFindOptions(opts...)
 	cursorOpts := coll.client.createBaseCursorOptions()
-
 	if fo.AllowDiskUse != nil {
 		op.AllowDiskUse(*fo.AllowDiskUse)
 	}
@@ -1156,6 +1210,12 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	}
 	if fo.Comment != nil {
 		op.Comment(*fo.Comment)
+
+		commentVal, err := transformValue(coll.registry, fo.Comment, true, "comment")
+		if err != nil {
+			return nil, err
+		}
+		cursorOpts.Comment = commentVal
 	}
 	if fo.CursorType != nil {
 		switch *fo.CursorType {
@@ -1169,10 +1229,16 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	if fo.Hint != nil {
 		hint, err := transformValue(coll.registry, fo.Hint, false, "hint")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Hint(hint)
+	}
+	if fo.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, fo.Let, true, "let")
+		if err != nil {
+			return nil, err
+		}
+		op.Let(let)
 	}
 	if fo.Limit != nil {
 		limit := *fo.Limit
@@ -1186,7 +1252,6 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	if fo.Max != nil {
 		max, err := transformBsoncoreDocument(coll.registry, fo.Max, true, "max")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Max(max)
@@ -1194,13 +1259,9 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	if fo.MaxAwaitTime != nil {
 		cursorOpts.MaxTimeMS = int64(*fo.MaxAwaitTime / time.Millisecond)
 	}
-	if fo.MaxTime != nil {
-		op.MaxTimeMS(int64(*fo.MaxTime / time.Millisecond))
-	}
 	if fo.Min != nil {
 		min, err := transformBsoncoreDocument(coll.registry, fo.Min, true, "min")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Min(min)
@@ -1214,7 +1275,6 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	if fo.Projection != nil {
 		proj, err := transformBsoncoreDocument(coll.registry, fo.Projection, true, "projection")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Projection(proj)
@@ -1234,7 +1294,6 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	if fo.Sort != nil {
 		sort, err := transformBsoncoreDocument(coll.registry, fo.Sort, false, "sort")
 		if err != nil {
-			closeImplicitSession(sess)
 			return nil, err
 		}
 		op.Sort(sort)
@@ -1246,13 +1305,11 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 	op = op.Retry(retry)
 
 	if err = op.Execute(ctx); err != nil {
-		closeImplicitSession(sess)
 		return nil, replaceErrors(err)
 	}
 
 	bc, err := op.Result(cursorOpts)
 	if err != nil {
-		closeImplicitSession(sess)
 		return nil, replaceErrors(err)
 	}
 	return newCursorWithSession(bc, coll.registry, sess)
@@ -1266,7 +1323,7 @@ func (coll *Collection) Find(ctx context.Context, filter interface{},
 //
 // The opts parameter can be used to specify options for this operation (see the options.FindOneOptions documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/find/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/find/.
 func (coll *Collection) FindOne(ctx context.Context, filter interface{},
 	opts ...*options.FindOneOptions) *SingleResult {
 
@@ -1276,6 +1333,9 @@ func (coll *Collection) FindOne(ctx context.Context, filter interface{},
 
 	findOpts := make([]*options.FindOptions, 0, len(opts))
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		findOpts = append(findOpts, &options.FindOptions{
 			AllowPartialResults: opt.AllowPartialResults,
 			BatchSize:           opt.BatchSize,
@@ -1313,10 +1373,7 @@ func (coll *Collection) findAndModify(ctx context.Context, op *operation.FindAnd
 	sess := sessionFromContext(ctx)
 	var err error
 	if sess == nil && coll.client.sessionPool != nil {
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return &SingleResult{err: err}
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -1369,7 +1426,7 @@ func (coll *Collection) findAndModify(ctx context.Context, op *operation.FindAnd
 // The opts parameter can be used to specify options for the operation (see the options.FindOneAndDeleteOptions
 // documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/findAndModify/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/findAndModify/.
 func (coll *Collection) FindOneAndDelete(ctx context.Context, filter interface{},
 	opts ...*options.FindOneAndDeleteOptions) *SingleResult {
 
@@ -1378,12 +1435,17 @@ func (coll *Collection) FindOneAndDelete(ctx context.Context, filter interface{}
 		return &SingleResult{err: err}
 	}
 	fod := options.MergeFindOneAndDeleteOptions(opts...)
-	op := operation.NewFindAndModify(f).Remove(true).ServerAPI(coll.client.serverAPI)
+	op := operation.NewFindAndModify(f).Remove(true).ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout).
+		MaxTime(fod.MaxTime)
 	if fod.Collation != nil {
 		op = op.Collation(bsoncore.Document(fod.Collation.ToDocument()))
 	}
-	if fod.MaxTime != nil {
-		op = op.MaxTimeMS(int64(*fod.MaxTime / time.Millisecond))
+	if fod.Comment != nil {
+		comment, err := transformValue(coll.registry, fod.Comment, true, "comment")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Comment(comment)
 	}
 	if fod.Projection != nil {
 		proj, err := transformBsoncoreDocument(coll.registry, fod.Projection, true, "projection")
@@ -1406,6 +1468,13 @@ func (coll *Collection) FindOneAndDelete(ctx context.Context, filter interface{}
 		}
 		op = op.Hint(hint)
 	}
+	if fod.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, fod.Let, true, "let")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Let(let)
+	}
 
 	return coll.findAndModify(ctx, op)
 }
@@ -1418,12 +1487,12 @@ func (coll *Collection) FindOneAndDelete(ctx context.Context, filter interface{}
 // ErrNoDocuments wil be returned. If the filter matches multiple documents, one will be selected from the matched set.
 //
 // The replacement parameter must be a document that will be used to replace the selected document. It cannot be nil
-// and cannot contain any update operators (https://docs.mongodb.com/manual/reference/operator/update/).
+// and cannot contain any update operators (https://www.mongodb.com/docs/manual/reference/operator/update/).
 //
 // The opts parameter can be used to specify options for the operation (see the options.FindOneAndReplaceOptions
 // documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/findAndModify/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/findAndModify/.
 func (coll *Collection) FindOneAndReplace(ctx context.Context, filter interface{},
 	replacement interface{}, opts ...*options.FindOneAndReplaceOptions) *SingleResult {
 
@@ -1441,15 +1510,19 @@ func (coll *Collection) FindOneAndReplace(ctx context.Context, filter interface{
 
 	fo := options.MergeFindOneAndReplaceOptions(opts...)
 	op := operation.NewFindAndModify(f).Update(bsoncore.Value{Type: bsontype.EmbeddedDocument, Data: r}).
-		ServerAPI(coll.client.serverAPI)
+		ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout).MaxTime(fo.MaxTime)
 	if fo.BypassDocumentValidation != nil && *fo.BypassDocumentValidation {
 		op = op.BypassDocumentValidation(*fo.BypassDocumentValidation)
 	}
 	if fo.Collation != nil {
 		op = op.Collation(bsoncore.Document(fo.Collation.ToDocument()))
 	}
-	if fo.MaxTime != nil {
-		op = op.MaxTimeMS(int64(*fo.MaxTime / time.Millisecond))
+	if fo.Comment != nil {
+		comment, err := transformValue(coll.registry, fo.Comment, true, "comment")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Comment(comment)
 	}
 	if fo.Projection != nil {
 		proj, err := transformBsoncoreDocument(coll.registry, fo.Projection, true, "projection")
@@ -1478,6 +1551,13 @@ func (coll *Collection) FindOneAndReplace(ctx context.Context, filter interface{
 		}
 		op = op.Hint(hint)
 	}
+	if fo.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, fo.Let, true, "let")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Let(let)
+	}
 
 	return coll.findAndModify(ctx, op)
 }
@@ -1490,13 +1570,13 @@ func (coll *Collection) FindOneAndReplace(ctx context.Context, filter interface{
 // ErrNoDocuments wil be returned. If the filter matches multiple documents, one will be selected from the matched set.
 //
 // The update parameter must be a document containing update operators
-// (https://docs.mongodb.com/manual/reference/operator/update/) and can be used to specify the modifications to be made
+// (https://www.mongodb.com/docs/manual/reference/operator/update/) and can be used to specify the modifications to be made
 // to the selected document. It cannot be nil or empty.
 //
 // The opts parameter can be used to specify options for the operation (see the options.FindOneAndUpdateOptions
 // documentation).
 //
-// For more information about the command, see https://docs.mongodb.com/manual/reference/command/findAndModify/.
+// For more information about the command, see https://www.mongodb.com/docs/manual/reference/command/findAndModify/.
 func (coll *Collection) FindOneAndUpdate(ctx context.Context, filter interface{},
 	update interface{}, opts ...*options.FindOneAndUpdateOptions) *SingleResult {
 
@@ -1510,7 +1590,8 @@ func (coll *Collection) FindOneAndUpdate(ctx context.Context, filter interface{}
 	}
 
 	fo := options.MergeFindOneAndUpdateOptions(opts...)
-	op := operation.NewFindAndModify(f).ServerAPI(coll.client.serverAPI)
+	op := operation.NewFindAndModify(f).ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout).
+		MaxTime(fo.MaxTime)
 
 	u, err := transformUpdateValue(coll.registry, update, true)
 	if err != nil {
@@ -1531,8 +1612,12 @@ func (coll *Collection) FindOneAndUpdate(ctx context.Context, filter interface{}
 	if fo.Collation != nil {
 		op = op.Collation(bsoncore.Document(fo.Collation.ToDocument()))
 	}
-	if fo.MaxTime != nil {
-		op = op.MaxTimeMS(int64(*fo.MaxTime / time.Millisecond))
+	if fo.Comment != nil {
+		comment, err := transformValue(coll.registry, fo.Comment, true, "comment")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Comment(comment)
 	}
 	if fo.Projection != nil {
 		proj, err := transformBsoncoreDocument(coll.registry, fo.Projection, true, "projection")
@@ -1561,18 +1646,25 @@ func (coll *Collection) FindOneAndUpdate(ctx context.Context, filter interface{}
 		}
 		op = op.Hint(hint)
 	}
+	if fo.Let != nil {
+		let, err := transformBsoncoreDocument(coll.registry, fo.Let, true, "let")
+		if err != nil {
+			return &SingleResult{err: err}
+		}
+		op = op.Let(let)
+	}
 
 	return coll.findAndModify(ctx, op)
 }
 
 // Watch returns a change stream for all changes on the corresponding collection. See
-// https://docs.mongodb.com/manual/changeStreams/ for more information about change streams.
+// https://www.mongodb.com/docs/manual/changeStreams/ for more information about change streams.
 //
 // The Collection must be configured with read concern majority or no read concern for a change stream to be created
 // successfully.
 //
 // The pipeline parameter must be an array of documents, each representing a pipeline stage. The pipeline cannot be
-// nil but can be empty. The stage documents must all be non-nil. See https://docs.mongodb.com/manual/changeStreams/ for
+// nil but can be empty. The stage documents must all be non-nil. See https://www.mongodb.com/docs/manual/changeStreams/ for
 // a list of pipeline stages that can be used with change streams. For a pipeline of bson.D documents, the
 // mongo.Pipeline{} type can be used.
 //
@@ -1602,17 +1694,76 @@ func (coll *Collection) Indexes() IndexView {
 // Drop drops the collection on the server. This method ignores "namespace not found" errors so it is safe to drop
 // a collection that does not exist on the server.
 func (coll *Collection) Drop(ctx context.Context) error {
+	// Follow Client-Side Encryption specification to check for encryptedFields.
+	// Drop does not have an encryptedFields option. See: GODRIVER-2413.
+	// Check for encryptedFields from the client EncryptedFieldsMap.
+	// Check for encryptedFields from the server if EncryptedFieldsMap is set.
+	ef := coll.db.getEncryptedFieldsFromMap(coll.name)
+	if ef == nil && coll.db.client.encryptedFieldsMap != nil {
+		var err error
+		if ef, err = coll.db.getEncryptedFieldsFromServer(ctx, coll.name); err != nil {
+			return err
+		}
+	}
+
+	if ef != nil {
+		return coll.dropEncryptedCollection(ctx, ef)
+	}
+
+	return coll.drop(ctx)
+}
+
+// dropEncryptedCollection drops a collection with EncryptedFields.
+func (coll *Collection) dropEncryptedCollection(ctx context.Context, ef interface{}) error {
+	efBSON, err := transformBsoncoreDocument(coll.registry, ef, true /* mapAllowed */, "encryptedFields")
+	if err != nil {
+		return fmt.Errorf("error transforming document: %v", err)
+	}
+
+	// Drop the three encryption-related, associated collections: `escCollection`, `eccCollection` and `ecocCollection`.
+	// Drop ESCCollection.
+	escCollection, err := internal.GetEncryptedStateCollectionName(efBSON, coll.name, internal.EncryptedStateCollection)
+	if err != nil {
+		return err
+	}
+	if err := coll.db.Collection(escCollection).drop(ctx); err != nil {
+		return err
+	}
+
+	// Drop ECCCollection.
+	eccCollection, err := internal.GetEncryptedStateCollectionName(efBSON, coll.name, internal.EncryptedCacheCollection)
+	if err != nil {
+		return err
+	}
+	if err := coll.db.Collection(eccCollection).drop(ctx); err != nil {
+		return err
+	}
+
+	// Drop ECOCCollection.
+	ecocCollection, err := internal.GetEncryptedStateCollectionName(efBSON, coll.name, internal.EncryptedCompactionCollection)
+	if err != nil {
+		return err
+	}
+	if err := coll.db.Collection(ecocCollection).drop(ctx); err != nil {
+		return err
+	}
+
+	// Drop the data collection.
+	if err := coll.drop(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+// drop drops a collection without EncryptedFields.
+func (coll *Collection) drop(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	sess := sessionFromContext(ctx)
 	if sess == nil && coll.client.sessionPool != nil {
-		var err error
-		sess, err = session.NewClientSession(coll.client.sessionPool, coll.client.id, session.Implicit)
-		if err != nil {
-			return err
-		}
+		sess = session.NewImplicitClientSession(coll.client.sessionPool, coll.client.id)
 		defer sess.EndSession()
 	}
 
@@ -1636,7 +1787,7 @@ func (coll *Collection) Drop(ctx context.Context) error {
 		ServerSelector(selector).ClusterClock(coll.client.clock).
 		Database(coll.db.name).Collection(coll.name).
 		Deployment(coll.client.deployment).Crypt(coll.client.cryptFLE).
-		ServerAPI(coll.client.serverAPI)
+		ServerAPI(coll.client.serverAPI).Timeout(coll.client.timeout)
 	err = op.Execute(ctx)
 
 	// ignore namespace not found erorrs

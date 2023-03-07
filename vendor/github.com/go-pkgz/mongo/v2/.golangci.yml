@@ -23,38 +23,51 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+      - hugeParam
 
 linters:
-  disable-all: true
   enable:
     - megacheck
+    - revive
     - govet
     - unconvert
     - megacheck
-    - structcheck
     - gas
     - gocyclo
     - dupl
     - misspell
     - unparam
-    - varcheck
-    - deadcode
+    - unused
     - typecheck
     - ineffassign
-    - varcheck
+    - stylecheck
+    - gochecknoinits
+    - exportloopref
+    - gocritic
+    - nakedret
+    - gosimple
+    - prealloc
   fast: false
-
+  disable-all: true
 
 run:
-#  modules-download-mode: vendor
+  output:
+    format: tab
   skip-dirs:
     - vendor
 
 issues:
   exclude-rules:
-    - text: "weak cryptographic primitive"
+    - text: "should have a package comment, unless it's in another file for this package"
       linters:
-        - gosec
-
-service:
-  golangci-lint-version: 1.19.x
+        - golint
+    - text: "at least one file in a package should have a package comment"
+      linters:
+        - stylecheck
+    - text: "composites: go.mongodb.org/mongo-driver/bson/primitive.E struct literal uses unkeyed fields"
+      linters:
+        - govet
+    - text: "package-comments: should have a package comment"
+      linters:
+        - revive
+  exclude-use-default: false

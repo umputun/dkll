@@ -17,6 +17,13 @@ import (
 // MakeTestConnection connects to MONGO_TEST url or "mongo" host (in no env) and returns new connection.
 // collection name randomized on each call
 func MakeTestConnection(t *testing.T) (mg *driver.Client, coll *driver.Collection, teardown func()) {
+	collName := fmt.Sprintf("test_%d", time.Now().Nanosecond())
+	return MakeTestConnectionWithColl(t, collName)
+}
+
+// MakeTestConnectionWithColl connects to MONGO_TEST url or "mongo" host (in no env) and returns new connection.
+// collection name passed in as cname param
+func MakeTestConnectionWithColl(t *testing.T, cname string) (mg *driver.Client, coll *driver.Collection, teardown func()) {
 	mongoURL := getMongoURL(t)
 	log.Print("[DEBUG] connect to mongo test instance")
 	opts := options.ClientOptions{}
@@ -24,8 +31,7 @@ func MakeTestConnection(t *testing.T) (mg *driver.Client, coll *driver.Collectio
 	opts.SetConnectTimeout(time.Second)
 	mg, err := driver.Connect(context.Background(), options.Client().ApplyURI(mongoURL))
 	require.NoError(t, err, "failed to make mongo client")
-	collName := fmt.Sprintf("test_%d", time.Now().Nanosecond())
-	coll = mg.Database("test").Collection(collName)
+	coll = mg.Database("test").Collection(cname)
 	teardown = func() {
 		require.NoError(t, coll.Drop(context.Background()))
 		assert.NoError(t, mg.Disconnect(context.Background()))

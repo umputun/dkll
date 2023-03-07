@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -336,14 +336,14 @@ func prepTestServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/find" && r.Method == "POST" {
 
-			body, err := ioutil.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			assert.NoError(t, err)
 			t.Logf("request: %s", string(body))
 
 			if atomic.AddInt64(&count, 1) > 1 {
 				var recs []core.LogEntry
-				err := json.NewEncoder(w).Encode(recs)
-				require.NoError(t, err)
+				e := json.NewEncoder(w).Encode(recs)
+				require.NoError(t, e)
 				return
 			}
 

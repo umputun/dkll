@@ -1,9 +1,16 @@
+// Copyright (C) MongoDB, Inc. 2022-present.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License. You may obtain
+// a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
 package driver // import "go.mongodb.org/mongo-driver/x/mongo/driver"
 
 import (
 	"context"
 	"time"
 
+	"go.mongodb.org/mongo-driver/internal"
 	"go.mongodb.org/mongo-driver/mongo/address"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
@@ -45,8 +52,8 @@ type Subscriber interface {
 type Server interface {
 	Connection(context.Context) (Connection, error)
 
-	// MinRTT returns the minimum round-trip time to the server observed over the window period.
-	MinRTT() time.Duration
+	// RTTMonitor returns the round-trip time monitor associated with this server.
+	RTTMonitor() RTTMonitor
 }
 
 // Connection represents a connection to a MongoDB server.
@@ -54,12 +61,34 @@ type Connection interface {
 	WriteWireMessage(context.Context, []byte) error
 	ReadWireMessage(ctx context.Context, dst []byte) ([]byte, error)
 	Description() description.Server
+
+	// Close closes any underlying connection and returns or frees any resources held by the
+	// connection. Close is idempotent and can be called multiple times, although subsequent calls
+	// to Close may return an error. A connection cannot be used after it is closed.
 	Close() error
+
 	ID() string
 	ServerConnectionID() *int32
 	Address() address.Address
 	Stale() bool
 }
+
+// RTTMonitor represents a round-trip-time monitor.
+type RTTMonitor interface {
+	// EWMA returns the exponentially weighted moving average observed round-trip time.
+	EWMA() time.Duration
+
+	// Min returns the minimum observed round-trip time over the window period.
+	Min() time.Duration
+
+	// P90 returns the 90th percentile observed round-trip time over the window period.
+	P90() time.Duration
+
+	// Stats returns stringified stats of the current state of the monitor.
+	Stats() string
+}
+
+var _ RTTMonitor = &internal.ZeroRTTMonitor{}
 
 // PinnedConnection represents a Connection that can be pinned by one or more cursors or transactions. Implementations
 // of this interface should maintain the following invariants:
@@ -198,16 +227,16 @@ func (ssd SingleConnectionDeployment) Connection(context.Context) (Connection, e
 	return ssd.C, nil
 }
 
-// MinRTT always returns 0. It implements the driver.Server interface.
-func (ssd SingleConnectionDeployment) MinRTT() time.Duration {
-	return 0
+// RTTMonitor implements the driver.Server interface.
+func (ssd SingleConnectionDeployment) RTTMonitor() RTTMonitor {
+	return &internal.ZeroRTTMonitor{}
 }
 
-// TODO(GODRIVER-617): We can likely use 1 type for both the Type and the RetryMode by using
-// 2 bits for the mode and 1 bit for the type. Although in the practical sense, we might not want to
-// do that since the type of retryability is tied to the operation itself and isn't going change,
-// e.g. and insert operation will always be a write, however some operations are both reads and
-// writes, for instance aggregate is a read but with a $out parameter it's a write.
+// TODO(GODRIVER-617): We can likely use 1 type for both the Type and the RetryMode by using 2 bits for the mode and 1
+// TODO bit for the type. Although in the practical sense, we might not want to do that since the type of retryability
+// TODO is tied to the operation itself and isn't going change, e.g. and insert operation will always be a write,
+// TODO however some operations are both reads and  writes, for instance aggregate is a read but with a $out parameter
+// TODO it's a write.
 
 // Type specifies whether an operation is a read, write, or unknown.
 type Type uint
@@ -222,15 +251,17 @@ const (
 // RetryMode specifies the way that retries are handled for retryable operations.
 type RetryMode uint
 
-// These are the modes available for retrying.
+// These are the modes available for retrying. Note that if Timeout is specified on the Client, the
+// operation will automatically retry as many times as possible within the context's deadline
+// unless RetryNone is used.
 const (
 	// RetryNone disables retrying.
 	RetryNone RetryMode = iota
-	// RetryOnce will enable retrying the entire operation once.
+	// RetryOnce will enable retrying the entire operation once if Timeout is not specified.
 	RetryOnce
-	// RetryOncePerCommand will enable retrying each command associated with an operation. For
-	// example, if an insert is batch split into 4 commands then each of those commands is eligible
-	// for one retry.
+	// RetryOncePerCommand will enable retrying each command associated with an operation if Timeout
+	// is not specified. For example, if an insert is batch split into 4 commands then each of
+	// those commands is eligible for one retry.
 	RetryOncePerCommand
 	// RetryContext will enable retrying until the context.Context's deadline is exceeded or it is
 	// cancelled.

@@ -1,9 +1,10 @@
+// Package agent provides agent for loging
 package agent
 
 import (
 	"context"
 	"fmt"
-	"math/rand" //nolint:gosec
+	"math/rand" // nolint
 	"time"
 
 	log "github.com/go-pkgz/lgr"
@@ -27,11 +28,11 @@ func (d *DemoEmitter) Logs(o docker.LogsOptions) error {
 			var line string
 			switch o.Container {
 			case "nginx":
-				line = nginxDemo[rand.Intn(len(nginxDemo)-1)] //nolint:gosec
+				line = nginxDemo[rand.Intn(len(nginxDemo)-1)] // nolint
 			case "rest":
-				line = restDemo[rand.Intn(len(restDemo)-1)] //nolint:gosec
+				line = restDemo[rand.Intn(len(restDemo)-1)] // nolint
 			case "mongo":
-				line = mongoDemo[rand.Intn(len(mongoDemo)-1)] //nolint:gosec
+				line = mongoDemo[rand.Intn(len(mongoDemo)-1)] // nolint
 
 			}
 

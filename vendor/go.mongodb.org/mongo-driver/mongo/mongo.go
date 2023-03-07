@@ -65,11 +65,10 @@ func (me MarshalError) Error() string {
 //
 // Example usage:
 //
-//		mongo.Pipeline{
-//			{{"$group", bson.D{{"_id", "$state"}, {"totalPop", bson.D{{"$sum", "$pop"}}}}}},
-//			{{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10*1000*1000}}}}}},
-//		}
-//
+//	mongo.Pipeline{
+//		{{"$group", bson.D{{"_id", "$state"}, {"totalPop", bson.D{{"$sum", "$pop"}}}}}},
+//		{{"$match", bson.D{{"totalPop", bson.D{{"$gte", 10*1000*1000}}}}}},
+//	}
 type Pipeline []bson.D
 
 // transformAndEnsureID is a hack that makes it easy to get a RawValue as the _id value.
@@ -123,17 +122,6 @@ func transformAndEnsureID(registry *bsoncodec.Registry, val interface{}) (bsonco
 	return doc, id, nil
 }
 
-func transformDocument(registry *bsoncodec.Registry, val interface{}) (bsonx.Doc, error) {
-	if doc, ok := val.(bsonx.Doc); ok {
-		return doc.Copy(), nil
-	}
-	b, err := transformBsoncoreDocument(registry, val, true, "document")
-	if err != nil {
-		return nil, err
-	}
-	return bsonx.ReadDoc(b)
-}
-
 func transformBsoncoreDocument(registry *bsoncodec.Registry, val interface{}, mapAllowed bool, paramName string) (bsoncore.Document, error) {
 	if registry == nil {
 		registry = bson.DefaultRegistry
@@ -175,7 +163,7 @@ func ensureDollarKey(doc bsoncore.Document) error {
 
 func ensureNoDollarKey(doc bsoncore.Document) error {
 	if elem, err := doc.IndexErr(0); err == nil && strings.HasPrefix(elem.Key(), "$") {
-		return errors.New("replacement document cannot contains keys beginning with '$")
+		return errors.New("replacement document cannot contain keys beginning with '$'")
 	}
 
 	return nil

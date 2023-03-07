@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,7 +28,7 @@ func TestClient(t *testing.T) {
 		ShowTS:   true,
 	}}
 
-	lgr.Out(ioutil.Discard)
+	lgr.Out(io.Discard)
 	defer lgr.Out(os.Stdout)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	e := c.Run(ctx)
 	require.NoError(t, e)
 	_ = w.Close()
-	out, _ := ioutil.ReadAll(r)
+	out, _ := io.ReadAll(r)
 	os.Stdout = rescueStdout
 	exp := "h1:c1 - 2019-05-24 21:54:30 - msg1\nh1:c2 - 2019-05-24 21:54:31 - msg2\n" +
 		"h2:c1 - 2019-05-24 21:54:32 - msg3\nh1:c1 - 2019-05-24 21:54:33 - msg4\n" +
@@ -54,14 +54,14 @@ func prepTestServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/find" && r.Method == "POST" {
 
-			body, err := ioutil.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			assert.NoError(t, err)
 			t.Logf("request: %s", string(body))
 
 			if atomic.AddInt64(&count, 1) > 1 {
 				var recs []core.LogEntry
-				err := json.NewEncoder(w).Encode(recs)
-				require.NoError(t, err)
+				e := json.NewEncoder(w).Encode(recs)
+				require.NoError(t, e)
 				return
 			}
 

@@ -68,7 +68,7 @@ func (m *mockWriter) Write(p []byte) (int, error) {
 
 func (m *mockWriter) Get() []string {
 	m.Lock()
-	res := string(m.Buffer.Bytes())
+	res := m.Buffer.String()
 	m.Unlock()
 	return strings.Split(res, "\n")
 }

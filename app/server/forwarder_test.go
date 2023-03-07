@@ -30,7 +30,7 @@ func TestForwarderTickHappened(t *testing.T) {
 		cancel()
 	})
 
-	f.Run(ctx)
+	_ = f.Run(ctx)
 	assert.Equal(t, 100, len(mp.get()), "all valid records sent to publisher")
 	assert.Equal(t, 100, len(fw.get()), "all valid records sent to file log")
 }
@@ -47,7 +47,7 @@ func TestForwarderFastClose(t *testing.T) {
 		cancel()
 	})
 
-	f.Run(ctx)
+	_ = f.Run(ctx)
 
 	assert.Equal(t, 100, len(mp.get()), "all valid records sent to publisher")
 	assert.Equal(t, 100, len(fw.get()), "all valid records sent to file log")
@@ -60,7 +60,7 @@ func (m *mockSyslogBackgroundReader) Go(ctx context.Context) (<-chan string, err
 	for i := 0; i < 100; i++ {
 		ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/test123[63415]: some msg %d", i)
 	}
-	ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/err[63415]: some bad msg")
+	ch <- "May 30 18:03:28 BigMac.local docker/err[63415]: some bad msg"
 	close(ch)
 	return ch, nil
 }

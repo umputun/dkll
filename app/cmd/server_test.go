@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -26,10 +25,9 @@ func TestServer(t *testing.T) {
 
 	_, coll, teardown := mongo.MakeTestConnection(t)
 	defer teardown()
-	// m, err := server.NewMongo(mg, server.MongoParams{DBName: "test", Collection: coll.Name()})
-	// require.NoError(t, err)
 
-	os.RemoveAll("/tmp/dkll-test")
+	err := os.RemoveAll("/tmp/dkll-test")
+	assert.NoError(t, err)
 
 	opts := ServerOpts{
 		Port:               8080,
@@ -67,18 +65,18 @@ func TestServer(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // allow background writes to finish
 
-	b, err := ioutil.ReadFile("/tmp/dkll-test/dkll.log")
+	b, err := os.ReadFile("/tmp/dkll-test/dkll.log")
 	assert.NoError(t, err)
 	expMerged := fmt.Sprintf("2017-05-30 15:13:35 -0500 CDT : BigMac."+
 		"local/cont1 [63415] - message 123\n%d-05-30 16:49:03 -0500 CDT : BigMac.local/cont2 [63416] - message blah\n",
 		time.Now().Year())
 	assert.Equal(t, expMerged, string(b))
 
-	b, err = ioutil.ReadFile("/tmp/dkll-test/BigMac.local/cont1.log")
+	b, err = os.ReadFile("/tmp/dkll-test/BigMac.local/cont1.log")
 	assert.NoError(t, err)
 	assert.Equal(t, "message 123\n", string(b))
 
-	b, err = ioutil.ReadFile("/tmp/dkll-test/BigMac.local/cont2.log")
+	b, err = os.ReadFile("/tmp/dkll-test/BigMac.local/cont2.log")
 	assert.NoError(t, err)
 	assert.Equal(t, "message blah\n", string(b))
 
@@ -90,7 +88,7 @@ func TestServer(t *testing.T) {
 	resp, err := http.Post("http://127.0.0.1:8080/v1/find", "application/json", &buff)
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint
 	var recs []core.LogEntry
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&recs))
 	require.Equal(t, 2, len(recs))
@@ -102,7 +100,7 @@ func TestServer(t *testing.T) {
 	resp, err = http.Get("http://127.0.0.1:8080/v1/last")
 	require.NoError(t, err)
 	assert.Equal(t, 200, resp.StatusCode)
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint
 	var rec core.LogEntry
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&rec))
 	assert.Equal(t, "message blah", rec.Msg)

@@ -9,6 +9,7 @@ package operation
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo/description"
@@ -20,7 +21,7 @@ import (
 // ListIndexes performs a listIndexes operation.
 type ListIndexes struct {
 	batchSize  *int32
-	maxTimeMS  *int64
+	maxTime    *time.Duration
 	session    *session.Client
 	clock      *session.ClusterClock
 	collection string
@@ -31,6 +32,7 @@ type ListIndexes struct {
 	retry      *driver.RetryMode
 	crypt      driver.Crypt
 	serverAPI  *driver.ServerAPIOptions
+	timeout    *time.Duration
 
 	result driver.CursorResponse
 }
@@ -58,7 +60,7 @@ func (li *ListIndexes) processResponse(info driver.ResponseInfo) error {
 
 }
 
-// Execute runs this operations and returns an error if the operaiton did not execute successfully.
+// Execute runs this operations and returns an error if the operation did not execute successfully.
 func (li *ListIndexes) Execute(ctx context.Context) error {
 	if li.deployment == nil {
 		return errors.New("the ListIndexes operation must have a Deployment set before Execute can be called")
@@ -73,13 +75,15 @@ func (li *ListIndexes) Execute(ctx context.Context) error {
 		CommandMonitor: li.monitor,
 		Database:       li.database,
 		Deployment:     li.deployment,
+		MaxTime:        li.maxTime,
 		Selector:       li.selector,
 		Crypt:          li.crypt,
 		Legacy:         driver.LegacyListIndexes,
 		RetryMode:      li.retry,
 		Type:           driver.Read,
 		ServerAPI:      li.serverAPI,
-	}.Execute(ctx, nil)
+		Timeout:        li.timeout,
+	}.Execute(ctx)
 
 }
 
@@ -90,10 +94,6 @@ func (li *ListIndexes) command(dst []byte, desc description.SelectedServer) ([]b
 	if li.batchSize != nil {
 
 		cursorDoc = bsoncore.AppendInt32Element(cursorDoc, "batchSize", *li.batchSize)
-	}
-	if li.maxTimeMS != nil {
-
-		dst = bsoncore.AppendInt64Element(dst, "maxTimeMS", *li.maxTimeMS)
 	}
 	cursorDoc, _ = bsoncore.AppendDocumentEnd(cursorDoc, cursorIdx)
 	dst = bsoncore.AppendDocumentElement(dst, "cursor", cursorDoc)
@@ -111,13 +111,13 @@ func (li *ListIndexes) BatchSize(batchSize int32) *ListIndexes {
 	return li
 }
 
-// MaxTimeMS specifies the maximum amount of time to allow the query to run.
-func (li *ListIndexes) MaxTimeMS(maxTimeMS int64) *ListIndexes {
+// MaxTime specifies the maximum amount of time to allow the query to run on the server.
+func (li *ListIndexes) MaxTime(maxTime *time.Duration) *ListIndexes {
 	if li == nil {
 		li = new(ListIndexes)
 	}
 
-	li.maxTimeMS = &maxTimeMS
+	li.maxTime = maxTime
 	return li
 }
 
@@ -219,5 +219,15 @@ func (li *ListIndexes) ServerAPI(serverAPI *driver.ServerAPIOptions) *ListIndexe
 	}
 
 	li.serverAPI = serverAPI
+	return li
+}
+
+// Timeout sets the timeout for this operation.
+func (li *ListIndexes) Timeout(timeout *time.Duration) *ListIndexes {
+	if li == nil {
+		li = new(ListIndexes)
+	}
+
+	li.timeout = timeout
 	return li
 }

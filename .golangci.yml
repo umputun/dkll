@@ -29,22 +29,18 @@ linters-settings:
 linters:
   disable-all: true
   enable:
+    - bodyclose
     - megacheck
     - revive
     - govet
     - unconvert
     - megacheck
-    - structcheck
+    - unused
     - gas
-    - gocyclo
-    - dupl
     - misspell
     - unparam
-    - varcheck
-    - deadcode
     - typecheck
     - ineffassign
-    - varcheck
     - stylecheck
     - gochecknoinits
     - exportloopref
@@ -55,9 +51,7 @@ linters:
 
   fast: false
 
-
 run:
-  tests: false
   modules-download-mode: vendor
   skip-dirs:
     - vendor
@@ -68,13 +62,7 @@ issues:
     - text: "weak cryptographic primitive"
       linters:
         - gosec
-    - text: "at least one file in a package should have a package comment"
+    - text: "package-comments: should have a package comment"
       linters:
-        - stylecheck
-    - text: "whyNoLint: include an explanation for nolint directive"
-      linters:
-        - gocritic
+        - revive
   exclude-use-default: false
-
-service:
-  golangci-lint-version: 1.34.x

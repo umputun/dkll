@@ -159,7 +159,9 @@ func (h *Hello) handshakeCommand(dst []byte, desc description.SelectedServer) ([
 
 // command appends all necessary command fields.
 func (h *Hello) command(dst []byte, desc description.SelectedServer) ([]byte, error) {
-	if h.serverAPI != nil || desc.Server.HelloOK {
+	// Use "hello" if topology is LoadBalanced, API version is declared or server
+	// has responded with "helloOk". Otherwise, use legacy hello.
+	if desc.Kind == description.LoadBalanced || h.serverAPI != nil || desc.Server.HelloOK {
 		dst = bsoncore.AppendInt32Element(dst, "hello", 1)
 	} else {
 		dst = bsoncore.AppendInt32Element(dst, internal.LegacyHello, 1)
@@ -192,12 +194,12 @@ func (h *Hello) Execute(ctx context.Context) error {
 		return errors.New("a Hello must have a Deployment set before Execute can be called")
 	}
 
-	return h.createOperation().Execute(ctx, nil)
+	return h.createOperation().Execute(ctx)
 }
 
 // StreamResponse gets the next streaming Hello response from the server.
 func (h *Hello) StreamResponse(ctx context.Context, conn driver.StreamerConnection) error {
-	return h.createOperation().ExecuteExhaust(ctx, conn, nil)
+	return h.createOperation().ExecuteExhaust(ctx, conn)
 }
 
 func (h *Hello) createOperation() driver.Operation {
@@ -227,7 +229,7 @@ func (h *Hello) GetHandshakeInformation(ctx context.Context, _ address.Address, 
 			return nil
 		},
 		ServerAPI: h.serverAPI,
-	}.Execute(ctx, nil)
+	}.Execute(ctx)
 	if err != nil {
 		return driver.HandshakeInformation{}, err
 	}

@@ -13,13 +13,13 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/internal/uuid"
 	"go.mongodb.org/mongo-driver/mongo/address"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
-	"go.mongodb.org/mongo-driver/x/mongo/driver/uuid"
 )
 
 // ErrSessionEnded is returned when a client session is used after a call to endSession().
@@ -40,20 +40,11 @@ var ErrAbortTwice = errors.New("cannot call abortTransaction twice")
 // ErrCommitAfterAbort is returned if commit is called after an abort.
 var ErrCommitAfterAbort = errors.New("cannot call commitTransaction after calling abortTransaction")
 
-// ErrUnackWCUnsupported is returned if an unacknowledged write concern is supported for a transaciton.
+// ErrUnackWCUnsupported is returned if an unacknowledged write concern is supported for a transaction.
 var ErrUnackWCUnsupported = errors.New("transactions do not support unacknowledged write concerns")
 
 // ErrSnapshotTransaction is returned if an transaction is started on a snapshot session.
 var ErrSnapshotTransaction = errors.New("transactions are not supported in snapshot sessions")
-
-// Type describes the type of the session
-type Type uint8
-
-// These constants are the valid types for a client session.
-const (
-	Explicit Type = iota
-	Implicit
-)
 
 // TransactionState indicates the state of the transactions FSM.
 type TransactionState uint8
@@ -113,7 +104,7 @@ type Client struct {
 	ClusterTime    bson.Raw
 	Consistent     bool // causal consistency
 	OperationTime  *primitive.Timestamp
-	SessionType    Type
+	IsImplicit     bool
 	Terminated     bool
 	RetryingCommit bool
 	Committing     bool
@@ -179,15 +170,27 @@ func MaxClusterTime(ct1, ct2 bson.Raw) bson.Raw {
 	return ct1
 }
 
-// NewClientSession creates a Client.
-func NewClientSession(pool *Pool, clientID uuid.UUID, sessionType Type, opts ...*ClientOptions) (*Client, error) {
-	mergedOpts := mergeClientOptions(opts...)
+// NewImplicitClientSession creates a new implicit client-side session.
+func NewImplicitClientSession(pool *Pool, clientID uuid.UUID) *Client {
+	// Server-side session checkout for implicit sessions is deferred until after checking out a
+	// connection, so don't check out a server-side session right now. This will limit the number of
+	// implicit sessions to no greater than an application's maxPoolSize.
 
-	c := &Client{
-		ClientID:    clientID,
-		SessionType: sessionType,
-		pool:        pool,
+	return &Client{
+		pool:       pool,
+		ClientID:   clientID,
+		IsImplicit: true,
 	}
+}
+
+// NewClientSession creates a new explicit client-side session.
+func NewClientSession(pool *Pool, clientID uuid.UUID, opts ...*ClientOptions) (*Client, error) {
+	c := &Client{
+		pool:     pool,
+		ClientID: clientID,
+	}
+
+	mergedOpts := mergeClientOptions(opts...)
 	if mergedOpts.DefaultReadPreference != nil {
 		c.transactionRp = mergedOpts.DefaultReadPreference
 	}
@@ -204,8 +207,9 @@ func NewClientSession(pool *Pool, clientID uuid.UUID, sessionType Type, opts ...
 		c.Snapshot = *mergedOpts.Snapshot
 	}
 
-	// The default for causalConsistency is true, unless Snapshot is enabled, then it's false. Set
-	// the default and then allow any explicit causalConsistency setting to override it.
+	// For explicit sessions, the default for causalConsistency is true, unless Snapshot is
+	// enabled, then it's false. Set the default and then allow any explicit causalConsistency
+	// setting to override it.
 	c.Consistent = !c.Snapshot
 	if mergedOpts.CausalConsistency != nil {
 		c.Consistent = *mergedOpts.CausalConsistency
@@ -215,14 +219,18 @@ func NewClientSession(pool *Pool, clientID uuid.UUID, sessionType Type, opts ...
 		return nil, errors.New("causal consistency and snapshot cannot both be set for a session")
 	}
 
-	servSess, err := pool.GetSession()
-	if err != nil {
+	if err := c.SetServer(); err != nil {
 		return nil, err
 	}
 
-	c.Server = servSess
-
 	return c, nil
+}
+
+// SetServer will check out a session from the client session pool.
+func (c *Client) SetServer() error {
+	var err error
+	c.Server, err = c.pool.GetSession()
+	return err
 }
 
 // AdvanceClusterTime updates the session's cluster time.
@@ -343,7 +351,6 @@ func (c *Client) EndSession() {
 	if c.Terminated {
 		return
 	}
-
 	c.Terminated = true
 	c.pool.ReturnSession(c.Server)
 }
@@ -364,7 +371,7 @@ func (c *Client) TransactionRunning() bool {
 	return c != nil && (c.TransactionState == Starting || c.TransactionState == InProgress)
 }
 
-// TransactionCommitted returns true of the client session just committed a transaciton.
+// TransactionCommitted returns true of the client session just committed a transaction.
 func (c *Client) TransactionCommitted() bool {
 	return c.TransactionState == Committed
 }

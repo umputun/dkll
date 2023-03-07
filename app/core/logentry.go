@@ -1,3 +1,4 @@
+// Package core defines core types and interfaces for the application.
 package core
 
 import (

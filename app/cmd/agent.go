@@ -1,3 +1,4 @@
+// Package cmd provides CLI commands for dkll
 package cmd
 
 import (

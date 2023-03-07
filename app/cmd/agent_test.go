@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -49,7 +48,7 @@ func TestDemoMode(t *testing.T) {
 	defer cancel()
 	require.NoError(t, a.Run(ctx))
 
-	b, err := ioutil.ReadFile("/tmp/logger.test/system/nginx.log")
+	b, err := os.ReadFile("/tmp/logger.test/system/nginx.log")
 	assert.NoError(t, err)
 	t.Log(string(b))
 }
@@ -75,11 +74,11 @@ func Test_makeLogWriters(t *testing.T) {
 	_, err = errWr.Write([]byte("xxx123 line 2\n"))
 	assert.NoError(t, err)
 
-	r, err := ioutil.ReadFile("/tmp/logger.test/gr1/container1.log")
+	r, err := os.ReadFile("/tmp/logger.test/gr1/container1.log")
 	assert.NoError(t, err)
 	assert.Equal(t, "abc line 1\nxxx123 line 2\n", string(r))
 
-	r, err = ioutil.ReadFile("/tmp/logger.test/gr1/container1.err")
+	r, err = os.ReadFile("/tmp/logger.test/gr1/container1.err")
 	assert.NoError(t, err)
 	assert.Equal(t, "err line 1\nxxx123 line 2\n", string(r))
 
@@ -108,7 +107,7 @@ func Test_makeLogWritersMixed(t *testing.T) {
 	_, err = errWr.Write([]byte("xxx123 line 2\n"))
 	assert.NoError(t, err)
 
-	r, err := ioutil.ReadFile("/tmp/logger.test/gr1/container1.log")
+	r, err := os.ReadFile("/tmp/logger.test/gr1/container1.log")
 	assert.NoError(t, err)
 	assert.Equal(t, "abc line 1\nxxx123 line 2\nerr line 1\nxxx123 line 2\n", string(r))
 
@@ -127,7 +126,7 @@ func Test_makeLogWritersWithJSON(t *testing.T) {
 	_, err = stdWr.Write([]byte("abc line 1"))
 	assert.NoError(t, err)
 
-	r, err := ioutil.ReadFile("/tmp/logger.test/gr1/container1.log")
+	r, err := os.ReadFile("/tmp/logger.test/gr1/container1.log")
 	assert.NoError(t, err)
 	assert.Contains(t, string(r), `"msg":"abc line 1","container":"container1","group":"gr1"`)
 
@@ -174,7 +173,7 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 
 	var buf syncedBuffer
 	var wg sync.WaitGroup
-	startTcpServer(t, ctx, 5514, &wg, &buf)
+	startTCPServer(ctx, t, 5514, &wg, &buf)
 
 	opts := AgentOpts{EnableSyslog: true, SyslogHost: "127.0.0.1:5514", SyslogProt: "tcp", SyslogPrefix: "docker/"}
 	a := AgentCmd{AgentOpts: opts}
@@ -209,7 +208,7 @@ func Test_makeLogWritersSyslogTCP(t *testing.T) {
 	assert.Contains(t, res[3], ": err xxx123 line 2345")
 }
 
-func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGroup, buf *syncedBuffer) {
+func startTCPServer(ctx context.Context, t *testing.T, port int, wg *sync.WaitGroup, buf *syncedBuffer) {
 
 	closed := func() bool {
 		select {
@@ -231,13 +230,14 @@ func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGr
 
 		go func() {
 			<-ctx.Done()
-			ts.Close()
+			e := ts.Close()
+			require.NoError(t, e)
 		}()
 
 		for {
 			var conn net.Conn
 			if closed() {
-				ts.Close()
+				ts.Close() // nolint
 				return
 			}
 			log.Print("listen to accept")
@@ -247,7 +247,7 @@ func startTcpServer(t *testing.T, ctx context.Context, port int, wg *sync.WaitGr
 
 			log.Printf("connection accepted from %v", conn.RemoteAddr())
 			go func(conn net.Conn) {
-				defer conn.Close()
+				defer conn.Close() // nolint
 				for {
 					select {
 					case <-ctx.Done():

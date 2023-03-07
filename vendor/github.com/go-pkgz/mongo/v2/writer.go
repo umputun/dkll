@@ -17,7 +17,7 @@ type BufferedWriter interface {
 	Close() error
 }
 
-// BufferedWriterMgo collects records in local buffer and flushes them as filled. Thread safe
+// BufferedWriterMongo collects records in local buffer and flushes them as filled. Thread safe
 // by default using both DB and collection from provided connection.
 // Collection can be customized by WithCollection method. Optional flush duration to save on interval
 type BufferedWriterMongo struct {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -42,7 +42,7 @@ func TestRest_findCtrl(t *testing.T) {
 
 	resp, err := http.Post(ts.URL+"/v1/find", "application/json", &buff)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, req, ds.getReq())
 	var recs []core.LogEntry
@@ -65,10 +65,12 @@ func TestRest_findCtrlFailed(t *testing.T) {
 
 	resp, err := http.Post(ts.URL+"/v1/find", "application/json", &buff)
 	require.NoError(t, err)
+	defer resp.Body.Close() // nolint
 	assert.Equal(t, 400, resp.StatusCode)
 
 	resp, err = http.Post(ts.URL+"/v1/find", "application/json", nil)
 	require.NoError(t, err)
+	defer resp.Body.Close() // nolint
 	assert.Equal(t, 400, resp.StatusCode)
 }
 
@@ -81,7 +83,7 @@ func TestRest_lastCtrl(t *testing.T) {
 	rec := core.LogEntry{}
 	resp, err := http.Get(ts.URL + "/v1/last")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint
 	assert.Equal(t, 200, resp.StatusCode)
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&rec))
 	assert.Equal(t, "5ce8718aef1d7346a5443a6f", rec.ID)
@@ -102,11 +104,11 @@ func TestRest_streamCtrl(t *testing.T) {
 
 	resp, err := http.Post(ts.URL+"/v1/stream?timeout=200ms", "application/json", &buff)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint
 	assert.Equal(t, 200, resp.StatusCode)
 	assert.Equal(t, req, ds.getReq())
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.True(t, time.Since(st) >= time.Millisecond*600, "4 responses slowed by 100 each and + 200ms timeout")
 	t.Logf("since=%v", time.Since(st))

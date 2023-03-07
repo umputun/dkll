@@ -1,3 +1,4 @@
+// Package server contains server implementation for API
 package server
 
 import (

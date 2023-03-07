@@ -36,7 +36,7 @@ func NewDropDatabase() *DropDatabase {
 	return &DropDatabase{}
 }
 
-// Execute runs this operations and returns an error if the operaiton did not execute successfully.
+// Execute runs this operations and returns an error if the operation did not execute successfully.
 func (dd *DropDatabase) Execute(ctx context.Context) error {
 	if dd.deployment == nil {
 		return errors.New("the DropDatabase operation must have a Deployment set before Execute can be called")
@@ -53,7 +53,7 @@ func (dd *DropDatabase) Execute(ctx context.Context) error {
 		Selector:       dd.selector,
 		WriteConcern:   dd.writeConcern,
 		ServerAPI:      dd.serverAPI,
-	}.Execute(ctx, nil)
+	}.Execute(ctx)
 
 }
 

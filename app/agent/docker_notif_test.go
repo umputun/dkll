@@ -144,7 +144,7 @@ type mockDockerClient struct {
 	sync.Mutex
 }
 
-func (m *mockDockerClient) add(id string, name string) {
+func (m *mockDockerClient) add(id, name string) {
 	m.Lock()
 	defer m.Unlock()
 	m.containers = append(m.containers, dockerclient.APIContainers{ID: id, Names: []string{name}})

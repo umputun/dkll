@@ -143,7 +143,7 @@ func readPrefSelector(rp *readpref.ReadPref, isOutputAggregate bool) ServerSelec
 	return ServerSelectorFunc(func(t Topology, candidates []Server) ([]Server, error) {
 		if t.Kind == LoadBalanced {
 			// In LoadBalanced mode, there should only be one server in the topology and it must be selected. We check
-			// this before checking MaxStaleness support becuase there's no monitoring in this mode, so the candidate
+			// this before checking MaxStaleness support because there's no monitoring in this mode, so the candidate
 			// server wouldn't have a wire version set, which would result in an error.
 			return candidates, nil
 		}
@@ -296,13 +296,18 @@ func selectByTagSet(candidates []Server, tagSets []tag.Set) []Server {
 }
 
 func selectByKind(candidates []Server, kind ServerKind) []Server {
-	var result []Server
-	for _, s := range candidates {
+	// Record the indices of viable candidates first and then append those to the returned slice
+	// to avoid appending costly Server structs directly as an optimization.
+	viableIndexes := make([]int, 0, len(candidates))
+	for i, s := range candidates {
 		if s.Kind == kind {
-			result = append(result, s)
+			viableIndexes = append(viableIndexes, i)
 		}
 	}
-
+	result := make([]Server, len(viableIndexes))
+	for i, idx := range viableIndexes {
+		result[i] = candidates[idx]
+	}
 	return result
 }
 

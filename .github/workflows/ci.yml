@@ -35,17 +35,16 @@ jobs:
           TZ: "America/Chicago"
           MONGO_TEST: mongodb://127.0.0.1:27017
 
-      - name: install golangci-lint and goveralls
-        run: |
-          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $GITHUB_WORKSPACE v1.43.0
-          GO111MODULE=off go get -u -v github.com/mattn/goveralls
-
-      - name: run linters
-        run: $GITHUB_WORKSPACE/golangci-lint run --out-format=github-actions ./...
-        working-directory: app
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
         env:
-          GO111MODULE: on
-          GOFLAGS: "-mod=vendor"
+          TZ: "America/Chicago"
+
+      - name: install goveralls
+        run: |
+          GO111MODULE=off go get -u github.com/mattn/goveralls
 
       - name: submit coverage
         run: $(go env GOPATH)/bin/goveralls -service="github" -coverprofile=$GITHUB_WORKSPACE/profile.cov

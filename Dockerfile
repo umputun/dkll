@@ -4,12 +4,15 @@ ADD . /build/dkll
 WORKDIR /build/dkll
 
 RUN \
-    revison=$(/script/git-rev.sh) && \
-    echo "revision=${revison}" && \
-    go build -mod=vendor -o dkll -ldflags "-X main.revision=$revison -s -w" ./app
+    revision=$(/script/git-rev.sh) && \
+    echo "revision=${revision}" && \
+    go build -o dkll -ldflags "-X main.revision=$revision -s -w" ./app
 
 
 FROM umputun/baseimage:app-latest
+
+# enables automatic changelog generation by tools like Dependabot
+LABEL org.opencontainers.image.source="https://github.com/umputun/dkill"
 
 COPY --from=build /build/dkll/dkll /srv/dkll
 

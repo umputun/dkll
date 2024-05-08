@@ -7,10 +7,10 @@ WORKDIR /build/dkll
 RUN \
     rev=$(/script/git-rev.sh) && \
     echo "revision=${rev}" && \
-    GOOS=linux GOARCH=amd64 go build -mod=vendor -o dkll.linux-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
-    GOOS=linux GOARCH=arm64 go build -mod=vendor -o dkll.linux-arm64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
-    GOOS=windows GOARCH=amd64 go build -mod=vendor -o dkll.windows-amd64.exe -ldflags "-X main.revision=${rev} -s -w" ./app && \
-    GOOS=darwin GOARCH=amd64 go build -mod=vendor -o dkll.darwin-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app
+    GOOS=linux GOARCH=amd64 go build -o dkll.linux-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=linux GOARCH=arm64 go build -o dkll.linux-arm64 -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=windows GOARCH=amd64 go build -o dkll.windows-amd64.exe -ldflags "-X main.revision=${rev} -s -w" ./app && \
+    GOOS=darwin GOARCH=amd64 go build -o dkll.darwin-amd64 -ldflags "-X main.revision=${rev} -s -w" ./app
 
 RUN \
     apk add --no-cache --update zip && \

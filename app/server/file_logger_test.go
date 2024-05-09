@@ -20,7 +20,7 @@ func TestFileLogger(t *testing.T) {
 		bytes.NewBuffer(nil),
 	}
 	containerWritersNum := 0
-	wrf := func(instance, container string) io.Writer {
+	wrf := func(string, string) io.Writer {
 		res := containerWriters[containerWritersNum]
 		containerWritersNum++
 		return res

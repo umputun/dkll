@@ -119,7 +119,7 @@ func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[
 func (s ServerCmd) makeWriters() (wrf server.WritersFactory, mergeLogWriter io.Writer, err error) {
 
 	// default loggers empty
-	wrf = func(instance, container string) io.Writer { return io.Discard }
+	wrf = func(string, string) io.Writer { return io.Discard }
 	mergeLogWriter = io.Discard
 	if s.FileBackupLocation == "" {
 		return wrf, mergeLogWriter, nil

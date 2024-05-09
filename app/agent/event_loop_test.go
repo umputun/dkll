@@ -17,7 +17,7 @@ func TestAgent(t *testing.T) {
 
 	lwr, ewr := mockWriter{}, mockWriter{}
 	el := EventLoop{
-		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+		WriterFactory: func(context.Context, string, string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
 		},
 		Events:     newMockEventer(),
@@ -36,7 +36,7 @@ func TestDemo(t *testing.T) {
 
 	lwr, ewr := mockWriter{}, mockWriter{}
 	el := EventLoop{
-		WriterFactory: func(_ context.Context, containerName, group string) (logWriter, errWriter io.WriteCloser, err error) {
+		WriterFactory: func(context.Context, string, string) (logWriter, errWriter io.WriteCloser, err error) {
 			return &lwr, &ewr, nil
 		},
 		Events:     NewDemoEventNotifier(ctx),
@@ -51,7 +51,7 @@ func TestDemo(t *testing.T) {
 
 type mockLogClient struct{}
 
-func (m *mockLogClient) Logs(opts docker.LogsOptions) error {
+func (m *mockLogClient) Logs(docker.LogsOptions) error {
 	return nil
 }
 

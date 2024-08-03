@@ -1,10 +1,12 @@
 package container // import "github.com/docker/docker/api/types/container"
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types/blkiodev"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/go-connections/nat"
 	units "github.com/docker/go-units"
@@ -101,7 +103,8 @@ func (n IpcMode) IsShareable() bool {
 
 // IsContainer indicates whether the container uses another container's ipc namespace.
 func (n IpcMode) IsContainer() bool {
-	return strings.HasPrefix(string(n), string(IPCModeContainer)+":")
+	_, ok := containerID(string(n))
+	return ok
 }
 
 // IsNone indicates whether container IpcMode is set to "none".
@@ -116,15 +119,14 @@ func (n IpcMode) IsEmpty() bool {
 
 // Valid indicates whether the ipc mode is valid.
 func (n IpcMode) Valid() bool {
+	// TODO(thaJeztah): align with PidMode, and consider container-mode without a container name/ID to be invalid.
 	return n.IsEmpty() || n.IsNone() || n.IsPrivate() || n.IsHost() || n.IsShareable() || n.IsContainer()
 }
 
 // Container returns the name of the container ipc stack is going to be used.
-func (n IpcMode) Container() string {
-	if n.IsContainer() {
-		return strings.TrimPrefix(string(n), string(IPCModeContainer)+":")
-	}
-	return ""
+func (n IpcMode) Container() (idOrName string) {
+	idOrName, _ = containerID(string(n))
+	return idOrName
 }
 
 // NetworkMode represents the container network stack.
@@ -132,12 +134,12 @@ type NetworkMode string
 
 // IsNone indicates whether container isn't using a network stack.
 func (n NetworkMode) IsNone() bool {
-	return n == "none"
+	return n == network.NetworkNone
 }
 
 // IsDefault indicates whether container uses the default network stack.
 func (n NetworkMode) IsDefault() bool {
-	return n == "default"
+	return n == network.NetworkDefault
 }
 
 // IsPrivate indicates whether container uses its private network stack.
@@ -147,17 +149,14 @@ func (n NetworkMode) IsPrivate() bool {
 
 // IsContainer indicates whether container uses a container network stack.
 func (n NetworkMode) IsContainer() bool {
-	parts := strings.SplitN(string(n), ":", 2)
-	return len(parts) > 1 && parts[0] == "container"
+	_, ok := containerID(string(n))
+	return ok
 }
 
 // ConnectedContainer is the id of the container which network this container is connected to.
-func (n NetworkMode) ConnectedContainer() string {
-	parts := strings.SplitN(string(n), ":", 2)
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
+func (n NetworkMode) ConnectedContainer() (idOrName string) {
+	idOrName, _ = containerID(string(n))
+	return idOrName
 }
 
 // UserDefined indicates user-created network
@@ -178,18 +177,12 @@ func (n UsernsMode) IsHost() bool {
 
 // IsPrivate indicates whether the container uses the a private userns.
 func (n UsernsMode) IsPrivate() bool {
-	return !(n.IsHost())
+	return !n.IsHost()
 }
 
 // Valid indicates whether the userns is valid.
 func (n UsernsMode) Valid() bool {
-	parts := strings.Split(string(n), ":")
-	switch mode := parts[0]; mode {
-	case "", "host":
-	default:
-		return false
-	}
-	return true
+	return n == "" || n.IsHost()
 }
 
 // CgroupSpec represents the cgroup to use for the container.
@@ -197,22 +190,20 @@ type CgroupSpec string
 
 // IsContainer indicates whether the container is using another container cgroup
 func (c CgroupSpec) IsContainer() bool {
-	parts := strings.SplitN(string(c), ":", 2)
-	return len(parts) > 1 && parts[0] == "container"
+	_, ok := containerID(string(c))
+	return ok
 }
 
 // Valid indicates whether the cgroup spec is valid.
 func (c CgroupSpec) Valid() bool {
-	return c.IsContainer() || c == ""
+	// TODO(thaJeztah): align with PidMode, and consider container-mode without a container name/ID to be invalid.
+	return c == "" || c.IsContainer()
 }
 
-// Container returns the name of the container whose cgroup will be used.
-func (c CgroupSpec) Container() string {
-	parts := strings.SplitN(string(c), ":", 2)
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
+// Container returns the ID or name of the container whose cgroup will be used.
+func (c CgroupSpec) Container() (idOrName string) {
+	idOrName, _ = containerID(string(c))
+	return idOrName
 }
 
 // UTSMode represents the UTS namespace of the container.
@@ -220,7 +211,7 @@ type UTSMode string
 
 // IsPrivate indicates whether the container uses its private UTS namespace.
 func (n UTSMode) IsPrivate() bool {
-	return !(n.IsHost())
+	return !n.IsHost()
 }
 
 // IsHost indicates whether the container uses the host's UTS namespace.
@@ -230,13 +221,7 @@ func (n UTSMode) IsHost() bool {
 
 // Valid indicates whether the UTS namespace is valid.
 func (n UTSMode) Valid() bool {
-	parts := strings.Split(string(n), ":")
-	switch mode := parts[0]; mode {
-	case "", "host":
-	default:
-		return false
-	}
-	return true
+	return n == "" || n.IsHost()
 }
 
 // PidMode represents the pid namespace of the container.
@@ -254,32 +239,19 @@ func (n PidMode) IsHost() bool {
 
 // IsContainer indicates whether the container uses a container's pid namespace.
 func (n PidMode) IsContainer() bool {
-	parts := strings.SplitN(string(n), ":", 2)
-	return len(parts) > 1 && parts[0] == "container"
+	_, ok := containerID(string(n))
+	return ok
 }
 
 // Valid indicates whether the pid namespace is valid.
 func (n PidMode) Valid() bool {
-	parts := strings.Split(string(n), ":")
-	switch mode := parts[0]; mode {
-	case "", "host":
-	case "container":
-		if len(parts) != 2 || parts[1] == "" {
-			return false
-		}
-	default:
-		return false
-	}
-	return true
+	return n == "" || n.IsHost() || validContainer(string(n))
 }
 
 // Container returns the name of the container whose pid namespace is going to be used.
-func (n PidMode) Container() string {
-	parts := strings.SplitN(string(n), ":", 2)
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
+func (n PidMode) Container() (idOrName string) {
+	idOrName, _ = containerID(string(n))
+	return idOrName
 }
 
 // DeviceRequest represents a request for devices from a device driver.
@@ -301,38 +273,74 @@ type DeviceMapping struct {
 
 // RestartPolicy represents the restart policies of the container.
 type RestartPolicy struct {
-	Name              string
+	Name              RestartPolicyMode
 	MaximumRetryCount int
 }
+
+type RestartPolicyMode string
+
+const (
+	RestartPolicyDisabled      RestartPolicyMode = "no"
+	RestartPolicyAlways        RestartPolicyMode = "always"
+	RestartPolicyOnFailure     RestartPolicyMode = "on-failure"
+	RestartPolicyUnlessStopped RestartPolicyMode = "unless-stopped"
+)
 
 // IsNone indicates whether the container has the "no" restart policy.
 // This means the container will not automatically restart when exiting.
 func (rp *RestartPolicy) IsNone() bool {
-	return rp.Name == "no" || rp.Name == ""
+	return rp.Name == RestartPolicyDisabled || rp.Name == ""
 }
 
 // IsAlways indicates whether the container has the "always" restart policy.
 // This means the container will automatically restart regardless of the exit status.
 func (rp *RestartPolicy) IsAlways() bool {
-	return rp.Name == "always"
+	return rp.Name == RestartPolicyAlways
 }
 
 // IsOnFailure indicates whether the container has the "on-failure" restart policy.
 // This means the container will automatically restart of exiting with a non-zero exit status.
 func (rp *RestartPolicy) IsOnFailure() bool {
-	return rp.Name == "on-failure"
+	return rp.Name == RestartPolicyOnFailure
 }
 
 // IsUnlessStopped indicates whether the container has the
 // "unless-stopped" restart policy. This means the container will
 // automatically restart unless user has put it to stopped state.
 func (rp *RestartPolicy) IsUnlessStopped() bool {
-	return rp.Name == "unless-stopped"
+	return rp.Name == RestartPolicyUnlessStopped
 }
 
 // IsSame compares two RestartPolicy to see if they are the same
 func (rp *RestartPolicy) IsSame(tp *RestartPolicy) bool {
 	return rp.Name == tp.Name && rp.MaximumRetryCount == tp.MaximumRetryCount
+}
+
+// ValidateRestartPolicy validates the given RestartPolicy.
+func ValidateRestartPolicy(policy RestartPolicy) error {
+	switch policy.Name {
+	case RestartPolicyAlways, RestartPolicyUnlessStopped, RestartPolicyDisabled:
+		if policy.MaximumRetryCount != 0 {
+			msg := "invalid restart policy: maximum retry count can only be used with 'on-failure'"
+			if policy.MaximumRetryCount < 0 {
+				msg += " and cannot be negative"
+			}
+			return &errInvalidParameter{fmt.Errorf(msg)}
+		}
+		return nil
+	case RestartPolicyOnFailure:
+		if policy.MaximumRetryCount < 0 {
+			return &errInvalidParameter{fmt.Errorf("invalid restart policy: maximum retry count cannot be negative")}
+		}
+		return nil
+	case "":
+		// Versions before v25.0.0 created an empty restart-policy "name" as
+		// default. Allow an empty name with "any" MaximumRetryCount for
+		// backward-compatibility.
+		return nil
+	default:
+		return &errInvalidParameter{fmt.Errorf("invalid restart policy: unknown policy '%s'; use one of '%s', '%s', '%s', or '%s'", policy.Name, RestartPolicyDisabled, RestartPolicyAlways, RestartPolicyOnFailure, RestartPolicyUnlessStopped)}
+	}
 }
 
 // LogMode is a type to define the available modes for logging
@@ -408,16 +416,17 @@ type UpdateConfig struct {
 // Portable information *should* appear in Config.
 type HostConfig struct {
 	// Applicable to all platforms
-	Binds           []string      // List of volume bindings for this container
-	ContainerIDFile string        // File (path) where the containerId is written
-	LogConfig       LogConfig     // Configuration of the logs for this container
-	NetworkMode     NetworkMode   // Network mode to use for the container
-	PortBindings    nat.PortMap   // Port mapping between the exposed port (container) and the host
-	RestartPolicy   RestartPolicy // Restart policy to be used for the container
-	AutoRemove      bool          // Automatically remove container when it exits
-	VolumeDriver    string        // Name of the volume driver used to mount volumes
-	VolumesFrom     []string      // List of volumes to take from other container
-	ConsoleSize     [2]uint       // Initial console size (height,width)
+	Binds           []string          // List of volume bindings for this container
+	ContainerIDFile string            // File (path) where the containerId is written
+	LogConfig       LogConfig         // Configuration of the logs for this container
+	NetworkMode     NetworkMode       // Network mode to use for the container
+	PortBindings    nat.PortMap       // Port mapping between the exposed port (container) and the host
+	RestartPolicy   RestartPolicy     // Restart policy to be used for the container
+	AutoRemove      bool              // Automatically remove container when it exits
+	VolumeDriver    string            // Name of the volume driver used to mount volumes
+	VolumesFrom     []string          // List of volumes to take from other container
+	ConsoleSize     [2]uint           // Initial console size (height,width)
+	Annotations     map[string]string `json:",omitempty"` // Arbitrary non-identifying metadata attached to container and provided to the runtime
 
 	// Applicable to UNIX platforms
 	CapAdd          strslice.StrSlice // List of kernel capabilities to add to the container
@@ -462,4 +471,24 @@ type HostConfig struct {
 
 	// Run a custom init inside the container, if null, use the daemon's configured settings
 	Init *bool `json:",omitempty"`
+}
+
+// containerID splits "container:<ID|name>" values. It returns the container
+// ID or name, and whether an ID/name was found. It returns an empty string and
+// a "false" if the value does not have a "container:" prefix. Further validation
+// of the returned, including checking if the value is empty, should be handled
+// by the caller.
+func containerID(val string) (idOrName string, ok bool) {
+	k, v, hasSep := strings.Cut(val, ":")
+	if !hasSep || k != "container" {
+		return "", false
+	}
+	return v, true
+}
+
+// validContainer checks if the given value is a "container:" mode with
+// a non-empty name/ID.
+func validContainer(val string) bool {
+	id, ok := containerID(val)
+	return ok && id != ""
 }

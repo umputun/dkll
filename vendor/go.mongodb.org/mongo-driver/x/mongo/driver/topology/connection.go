@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.mongodb.org/mongo-driver/internal"
+	"go.mongodb.org/mongo-driver/internal/csot"
 	"go.mongodb.org/mongo-driver/mongo/address"
 	"go.mongodb.org/mongo-driver/mongo/description"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
@@ -70,12 +70,18 @@ type connection struct {
 	currentlyStreaming   bool
 	connectContextMutex  sync.Mutex
 	cancellationListener cancellationListener
-	serverConnectionID   *int32 // the server's ID for this client's connection
+	serverConnectionID   *int64 // the server's ID for this client's connection
 
 	// pool related fields
-	pool       *pool
-	poolID     uint64
-	generation uint64
+	pool *pool
+
+	// TODO(GODRIVER-2824): change driverConnectionID type to int64.
+	driverConnectionID uint64
+	generation         uint64
+
+	// awaitingResponse indicates that the server response was not completely
+	// read before returning the connection to the pool.
+	awaitingResponse bool
 }
 
 // newConnection handles the creation of a connection. It does not connect the connection.
@@ -93,7 +99,7 @@ func newConnection(addr address.Address, opts ...ConnectionOption) *connection {
 		connectDone:          make(chan struct{}),
 		config:               cfg,
 		connectContextMade:   make(chan struct{}),
-		cancellationListener: internal.NewCancellationListener(),
+		cancellationListener: newCancellListener(),
 	}
 	// Connections to non-load balanced deployments should eagerly set the generation numbers so errors encountered
 	// at any point during connection establishment can be processed without the connection being considered stale.
@@ -103,6 +109,12 @@ func newConnection(addr address.Address, opts ...ConnectionOption) *connection {
 	atomic.StoreInt64(&c.state, connInitialized)
 
 	return c
+}
+
+// DriverConnectionID returns the driver connection ID.
+// TODO(GODRIVER-2824): change return type to int64.
+func (c *connection) DriverConnectionID() uint64 {
+	return c.driverConnectionID
 }
 
 // setGenerationNumber sets the connection's generation number if a callback has been provided to do so in connection
@@ -307,8 +319,8 @@ func transformNetworkError(ctx context.Context, originalError error, contextDead
 	}
 
 	// If there was an error and the context was cancelled, we assume it happened due to the cancellation.
-	if ctx.Err() == context.Canceled {
-		return context.Canceled
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return ctx.Err()
 	}
 
 	// If there was a timeout error and the context deadline was used, we convert the error into
@@ -317,7 +329,7 @@ func transformNetworkError(ctx context.Context, originalError error, contextDead
 		return originalError
 	}
 	if netErr, ok := originalError.(net.Error); ok && netErr.Timeout() {
-		return context.DeadlineExceeded
+		return fmt.Errorf("%w: %s", context.DeadlineExceeded, originalError.Error())
 	}
 
 	return originalError
@@ -330,7 +342,10 @@ func (c *connection) cancellationListenerCallback() {
 func (c *connection) writeWireMessage(ctx context.Context, wm []byte) error {
 	var err error
 	if atomic.LoadInt64(&c.state) != connConnected {
-		return ConnectionError{ConnectionID: c.id, message: "connection is closed"}
+		return ConnectionError{
+			ConnectionID: c.id,
+			message:      "connection is closed",
+		}
 	}
 
 	var deadline time.Time
@@ -379,9 +394,12 @@ func (c *connection) write(ctx context.Context, wm []byte) (err error) {
 }
 
 // readWireMessage reads a wiremessage from the connection. The dst parameter will be overwritten.
-func (c *connection) readWireMessage(ctx context.Context, dst []byte) ([]byte, error) {
+func (c *connection) readWireMessage(ctx context.Context) ([]byte, error) {
 	if atomic.LoadInt64(&c.state) != connConnected {
-		return dst, ConnectionError{ConnectionID: c.id, message: "connection is closed"}
+		return nil, ConnectionError{
+			ConnectionID: c.id,
+			message:      "connection is closed",
+		}
 	}
 
 	var deadline time.Time
@@ -399,15 +417,24 @@ func (c *connection) readWireMessage(ctx context.Context, dst []byte) ([]byte, e
 		return nil, ConnectionError{ConnectionID: c.id, Wrapped: err, message: "failed to set read deadline"}
 	}
 
-	dst, errMsg, err := c.read(ctx, dst)
+	dst, errMsg, err := c.read(ctx)
 	if err != nil {
-		// We closeConnection the connection because we don't know if there are other bytes left to read.
-		c.close()
+		if nerr := net.Error(nil); errors.As(err, &nerr) && nerr.Timeout() && csot.IsTimeoutContext(ctx) {
+			// If the error was a timeout error and CSOT is enabled, instead of
+			// closing the connection mark it as awaiting response so the pool
+			// can read the response before making it available to other
+			// operations.
+			c.awaitingResponse = true
+		} else {
+			// Otherwise, use the pre-CSOT behavior and close the connection
+			// because we don't know if there are other bytes left to read.
+			c.close()
+		}
 		message := errMsg
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			message = "socket was unexpectedly closed"
 		}
-		return dst, ConnectionError{
+		return nil, ConnectionError{
 			ConnectionID: c.id,
 			Wrapped:      transformNetworkError(ctx, err, contextDeadlineUsed),
 			message:      message,
@@ -417,7 +444,7 @@ func (c *connection) readWireMessage(ctx context.Context, dst []byte) ([]byte, e
 	return dst, nil
 }
 
-func (c *connection) read(ctx context.Context, dst []byte) (bytesRead []byte, errMsg string, err error) {
+func (c *connection) read(ctx context.Context) (bytesRead []byte, errMsg string, err error) {
 	go c.cancellationListener.Listen(ctx, c.cancellationListenerCallback)
 	defer func() {
 		// If the context is cancelled after we finish reading the server response, the cancellation listener could fire
@@ -439,7 +466,7 @@ func (c *connection) read(ctx context.Context, dst []byte) (bytesRead []byte, er
 	// reading messages from an exhaust cursor.
 	_, err = io.ReadFull(c.nc, sizeBuf[:])
 	if err != nil {
-		return dst, "incomplete read of message header", err
+		return nil, "incomplete read of message header", err
 	}
 
 	// read the length as an int32
@@ -452,16 +479,10 @@ func (c *connection) read(ctx context.Context, dst []byte) (bytesRead []byte, er
 		maxMessageSize = defaultMaxMessageSize
 	}
 	if uint32(size) > maxMessageSize {
-		return dst, errResponseTooLarge.Error(), errResponseTooLarge
+		return nil, errResponseTooLarge.Error(), errResponseTooLarge
 	}
 
-	if int(size) > cap(dst) {
-		// Since we can't grow this slice without allocating, just allocate an entirely new slice.
-		dst = make([]byte, 0, size)
-	}
-	// We need to ensure we don't accidentally read into a subsequent wire message, so we set the
-	// size to read exactly this wire message.
-	dst = dst[:size]
+	dst := make([]byte, size)
 	copy(dst, sizeBuf[:])
 
 	_, err = io.ReadFull(c.nc, dst[4:])
@@ -533,7 +554,7 @@ func (c *connection) ID() string {
 	return c.id
 }
 
-func (c *connection) ServerConnectionID() *int32 {
+func (c *connection) ServerConnectionID() *int64 {
 	return c.serverConnectionID
 }
 
@@ -564,8 +585,8 @@ func (c initConnection) LocalAddress() address.Address {
 func (c initConnection) WriteWireMessage(ctx context.Context, wm []byte) error {
 	return c.writeWireMessage(ctx, wm)
 }
-func (c initConnection) ReadWireMessage(ctx context.Context, dst []byte) ([]byte, error) {
-	return c.readWireMessage(ctx, dst)
+func (c initConnection) ReadWireMessage(ctx context.Context) ([]byte, error) {
+	return c.readWireMessage(ctx)
 }
 func (c initConnection) SetStreaming(streaming bool) {
 	c.setStreaming(streaming)
@@ -608,13 +629,13 @@ func (c *Connection) WriteWireMessage(ctx context.Context, wm []byte) error {
 
 // ReadWireMessage handles reading a wire message from the underlying connection. The dst parameter
 // will be overwritten with the new wire message.
-func (c *Connection) ReadWireMessage(ctx context.Context, dst []byte) ([]byte, error) {
+func (c *Connection) ReadWireMessage(ctx context.Context) ([]byte, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.connection == nil {
-		return dst, ErrConnectionClosed
+		return nil, ErrConnectionClosed
 	}
-	return c.connection.readWireMessage(ctx, dst)
+	return c.connection.readWireMessage(ctx)
 }
 
 // CompressWireMessage handles compressing the provided wire message using the underlying
@@ -714,7 +735,7 @@ func (c *Connection) ID() string {
 }
 
 // ServerConnectionID returns the server connection ID of this connection.
-func (c *Connection) ServerConnectionID() *int32 {
+func (c *Connection) ServerConnectionID() *int64 {
 	if c.connection == nil {
 		return nil
 	}
@@ -800,6 +821,12 @@ func (c *Connection) unpin(reason string) error {
 	return nil
 }
 
+// DriverConnectionID returns the driver connection ID.
+// TODO(GODRIVER-2824): change return type to int64.
+func (c *Connection) DriverConnectionID() uint64 {
+	return c.connection.DriverConnectionID()
+}
+
 func configureTLS(ctx context.Context,
 	tlsConnSource tlsConnectionSource,
 	nc net.Conn,
@@ -831,4 +858,48 @@ func configureTLS(ctx context.Context,
 		}
 	}
 	return client, nil
+}
+
+// TODO: Naming?
+
+// cancellListener listens for context cancellation and notifies listeners via a
+// callback function.
+type cancellListener struct {
+	aborted bool
+	done    chan struct{}
+}
+
+// newCancellListener constructs a cancellListener.
+func newCancellListener() *cancellListener {
+	return &cancellListener{
+		done: make(chan struct{}),
+	}
+}
+
+// Listen blocks until the provided context is cancelled or listening is aborted
+// via the StopListening function. If this detects that the context has been
+// cancelled (i.e. errors.Is(ctx.Err(), context.Canceled), the provided callback is
+// called to abort in-progress work. Even if the context expires, this function
+// will block until StopListening is called.
+func (c *cancellListener) Listen(ctx context.Context, abortFn func()) {
+	c.aborted = false
+
+	select {
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.Canceled) {
+			c.aborted = true
+			abortFn()
+		}
+
+		<-c.done
+	case <-c.done:
+	}
+}
+
+// StopListening stops the in-progress Listen call. This blocks if there is no
+// in-progress Listen call. This function will return true if the provided abort
+// callback was called when listening for cancellation on the previous context.
+func (c *cancellListener) StopListening() bool {
+	c.done <- struct{}{}
+	return c.aborted
 }

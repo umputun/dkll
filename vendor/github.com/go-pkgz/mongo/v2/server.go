@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -93,4 +94,29 @@ func Bind(r io.Reader, v interface{}) error {
 		return err
 	}
 	return bson.UnmarshalExtJSON(body, false, v)
+}
+
+var reMongoURL = regexp.MustCompile(`mongodb(\+srv)?://([^:]+):([^@]+)@[^/]+/?.*`)
+
+// SecretsMongoUrls retrieves passwords from mongo urls.
+// this is needed to pass mongo password to the logging masking function
+func SecretsMongoUrls(urls ...string) (res []string) {
+	res = []string{}
+	mongoPasswd := func(murl string) (string, bool) {
+		if !reMongoURL.MatchString(murl) {
+			return "", false
+		}
+		elems := reMongoURL.FindStringSubmatch(murl)
+		if len(elems) < 4 {
+			return "", false
+		}
+		return elems[3], true
+	}
+
+	for _, u := range urls {
+		if secret, ok := mongoPasswd(u); ok {
+			res = append(res, secret)
+		}
+	}
+	return res
 }

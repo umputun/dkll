@@ -1,21 +1,13 @@
 linters-settings:
   govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0
+    enable:
+      - shadow
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
   misspell:
     locale: US
-  lll:
-    line-length: 140
   gocritic:
     enabled-tags:
       - performance
@@ -27,17 +19,16 @@ linters-settings:
 
 linters:
   enable:
-    - megacheck
     - revive
     - govet
     - unconvert
-    - megacheck
-    - gas
+    - staticcheck
+    - unused
+    - gosec
     - gocyclo
     - dupl
     - misspell
     - unparam
-    - unused
     - typecheck
     - ineffassign
     - stylecheck
@@ -53,14 +44,9 @@ linters:
 run:
   output:
     format: tab
-  skip-dirs:
-    - vendor
 
 issues:
   exclude-rules:
-    - text: "should have a package comment, unless it's in another file for this package"
-      linters:
-        - golint
     - text: "at least one file in a package should have a package comment"
       linters:
         - stylecheck

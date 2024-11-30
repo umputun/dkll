@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: set up go 1.20
+      - name: set up go 1.23
         uses: actions/setup-go@v3
         with:
-          go-version: "1.20"
+          go-version: "1.23"
         id: go
 
       - name: launch mongodb
@@ -38,7 +38,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.58
+          version: v1.61
         env:
           TZ: "America/Chicago"
 

@@ -29,7 +29,7 @@ func MakeTestConnectionWithColl(t *testing.T, cname string) (mg *driver.Client, 
 	opts := options.ClientOptions{}
 	opts.SetAppName("test")
 	opts.SetConnectTimeout(time.Second)
-	mg, err := driver.Connect(context.Background(), options.Client().ApplyURI(mongoURL))
+	mg, err := driver.Connect(context.Background(), opts.ApplyURI(mongoURL))
 	require.NoError(t, err, "failed to make mongo client")
 	coll = mg.Database("test").Collection(cname)
 	teardown = func() {

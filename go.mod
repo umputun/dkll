@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/fatih/color v1.18.0
 	github.com/fsouza/go-dockerclient v1.12.0
-	github.com/go-chi/chi v4.0.2+incompatible
+	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/go-chi/render v1.0.3
 	github.com/go-pkgz/lgr v0.11.1
 	github.com/go-pkgz/mongo/v2 v2.2.1

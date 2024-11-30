@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: set up go 1.23
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: "1.23"
         id: go
@@ -23,7 +23,7 @@ jobs:
           mongoDBVersion: "4.2"
 
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: build and test
         run: |
@@ -36,7 +36,7 @@ jobs:
           MONGO_TEST: mongodb://127.0.0.1:27017
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.62
         env:
@@ -50,11 +50,11 @@ jobs:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}

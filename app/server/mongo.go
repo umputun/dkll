@@ -170,15 +170,15 @@ func (m *Mongo) makeQuery(req core.Request) (b bson.M) {
 	}
 	query := bson.M{"_id": bson.M{"$gt": m.getBid(req.LastID)}, "ts": bson.M{"$gte": fromTS, "$lt": toTS}}
 
-	if req.Containers != nil && len(req.Containers) > 0 {
+	if len(req.Containers) > 0 {
 		query["container"] = bson.M{"$in": m.convertListWithRegex(req.Containers)}
 	}
 
-	if req.Hosts != nil && len(req.Hosts) > 0 {
+	if len(req.Hosts) > 0 {
 		query["host"] = bson.M{"$in": m.convertListWithRegex(req.Hosts)}
 	}
 
-	if req.Excludes != nil && len(req.Excludes) > 0 {
+	if len(req.Excludes) > 0 {
 		if val, found := query["container"]; found {
 			val.(bson.M)["$nin"] = m.convertListWithRegex(req.Excludes)
 		} else {

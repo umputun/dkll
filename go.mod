@@ -7,7 +7,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.12.1
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/render v1.0.3
-	github.com/go-pkgz/lgr v0.11.1
+	github.com/go-pkgz/lgr v0.12.1
 	github.com/go-pkgz/mongo/v2 v2.2.1
 	github.com/go-pkgz/repeater v1.2.0
 	github.com/go-pkgz/rest v1.19.0

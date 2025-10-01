@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: set up go 1.23
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "1.23"
         id: go
@@ -23,7 +23,7 @@ jobs:
           mongoDBVersion: "4.2"
 
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: build and test
         run: |
@@ -36,7 +36,7 @@ jobs:
           MONGO_TEST: mongodb://127.0.0.1:27017
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: v1.62
         env:

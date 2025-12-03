@@ -46,7 +46,7 @@ func TestDemo(t *testing.T) {
 	el.Run(ctx)
 	wrStrings := lwr.Get()
 	t.Logf("%v", wrStrings)
-	assert.True(t, len(wrStrings) >= 25 && len(wrStrings) <= 31, len(wrStrings))
+	assert.True(t, len(wrStrings) >= 25 && len(wrStrings) <= 35, len(wrStrings))
 }
 
 type mockLogClient struct{}

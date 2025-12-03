@@ -1,30 +1,7 @@
-linters-settings:
-  govet:
-    enable:
-      - shadow
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
-  gocritic:
-    enabled-tags:
-      - performance
-      - style
-      - experimental
-    disabled-checks:
-      - wrapperFunc
-      - hugeParam
-      - rangeValCopy
+version: "2"
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - revive
@@ -35,29 +12,46 @@ linters:
     - gosec
     - misspell
     - unparam
-    - typecheck
     - ineffassign
-    - stylecheck
     - gochecknoinits
     - copyloopvar
     - gocritic
     - nakedret
-    - gosimple
     - prealloc
-
-  fast: false
+  settings:
+    govet:
+      enable:
+        - shadow
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: US
+    lll:
+      line-length: 140
+    gocritic:
+      enabled-tags:
+        - performance
+        - style
+        - experimental
+      disabled-checks:
+        - wrapperFunc
+        - hugeParam
+        - rangeValCopy
+  exclusions:
+    paths:
+      - vendor
+    rules:
+      - text: "weak cryptographic primitive"
+        linters:
+          - gosec
+      - text: "package-comments: should have a package comment"
+        linters:
+          - revive
 
 run:
   concurrency: 4
-
-issues:
-  exclude-dirs:
-    - vendor
-  exclude-rules:
-    - text: "weak cryptographic primitive"
-      linters:
-        - gosec
-    - text: "package-comments: should have a package comment"
-      linters:
-        - revive
-  exclude-use-default: false

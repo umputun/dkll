@@ -76,7 +76,7 @@ func (m *Mongo) Publish(records []core.LogEntry) (err error) {
 		recs[i] = m.makeMongoEntry(v)
 	}
 
-	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	coll := m.Database(m.DBName).Collection(m.Collection)
 	res, err := coll.InsertMany(context.TODO(), recs)
 	if err != nil {
 		return errors.Wrapf(err, "publish %d records", len(records))
@@ -105,7 +105,7 @@ func (m *Mongo) LastPublished() (entry core.LogEntry, err error) {
 	}
 
 	var mentry mongoLogEntry
-	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	coll := m.Database(m.DBName).Collection(m.Collection)
 	res := coll.FindOne(context.TODO(), bson.M{}, options.FindOne().SetSort(bson.D{{Key: "_id", Value: -1}}))
 	if err := res.Decode(&mentry); err != nil {
 		return core.LogEntry{}, nil
@@ -131,7 +131,7 @@ func (m *Mongo) Find(req core.Request) ([]core.LogEntry, error) {
 	query := m.makeQuery(req)
 
 	var mresult []mongoLogEntry
-	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	coll := m.Database(m.DBName).Collection(m.Collection)
 
 	sortOpt := bson.D{{Key: "_id", Value: 1}}
 	if req.LastID == "" || req.LastID == "0" {
@@ -226,7 +226,7 @@ func (m *Mongo) init(collection string) error {
 		{Keys: bson.D{{Key: "container", Value: 1}, {Key: "ts", Value: 1}}},
 	}
 
-	err := m.Client.Database(m.MongoParams.DBName).CreateCollection(context.Background(), m.MongoParams.Collection,
+	err := m.Client.Database(m.DBName).CreateCollection(context.Background(), m.Collection,
 		options.CreateCollection().SetCapped(true).SetSizeInBytes(int64(m.MaxCollectionSize)).
 			SetMaxDocuments(int64(m.MaxDocs)))
 
@@ -234,7 +234,7 @@ func (m *Mongo) init(collection string) error {
 		return errors.Wrapf(err, "initilize collection %s with %+v", collection, m.MongoParams)
 	}
 
-	coll := m.Database(m.MongoParams.DBName).Collection(m.MongoParams.Collection)
+	coll := m.Database(m.DBName).Collection(m.Collection)
 	if _, err := coll.Indexes().CreateMany(context.TODO(), indexes); err != nil {
 		return errors.Wrap(err, "create indexes")
 	}

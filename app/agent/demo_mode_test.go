@@ -36,7 +36,7 @@ func (m *mockDemoWriter) Write(p []byte) (int, error) {
 
 func (m *mockDemoWriter) Get() []string {
 	m.Lock()
-	res := m.Buffer.String()
+	res := m.String()
 	m.Unlock()
 	return strings.Split(res, "\n")
 }

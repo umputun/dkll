@@ -36,9 +36,9 @@ jobs:
           MONGO_TEST: mongodb://127.0.0.1:27017
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.62
+          version: v2.6
         env:
           TZ: "America/Chicago"
 

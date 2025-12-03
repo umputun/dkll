@@ -64,7 +64,7 @@ func main() {
 	}
 
 	for name, command := range dispatch {
-		if p.Active != nil && p.Command.Find(name) == p.Active {
+		if p.Active != nil && p.Find(name) == p.Active {
 			if err := command.Run(ctx); err != nil {
 				log.Printf("[ERROR] %s failed, %v", name, err)
 				os.Exit(1)

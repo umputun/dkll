@@ -7,12 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/render"
 	log "github.com/go-pkgz/lgr"
 	"github.com/go-pkgz/rest"
 	"github.com/go-pkgz/rest/logger"
+	"github.com/go-pkgz/routegroup"
 
 	"github.com/umputun/dkll/app/core"
 )
@@ -58,18 +56,18 @@ func (s *RestServer) Run(ctx context.Context) error {
 	return srv.ListenAndServe()
 }
 
-func (s *RestServer) router() chi.Router {
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID, middleware.RealIP, rest.Recoverer(log.Default()))
-	router.Use(middleware.Throttle(100), middleware.Timeout(60*time.Second))
+func (s *RestServer) router() http.Handler {
+	router := routegroup.New(http.NewServeMux())
+	router.Use(rest.Recoverer(log.Default()))
+	router.Use(rest.Throttle(100))
 	router.Use(rest.AppInfo("dkll", "umputun", s.Version))
 	router.Use(rest.Ping, rest.SizeLimit(1024))
 	router.Use(logger.New(logger.Log(log.Default()), logger.WithBody, logger.Prefix("[DEBUG]")).Handler)
 
-	router.Route("/v1", func(r chi.Router) {
-		r.Post("/find", s.findCtrl)
-		r.Post("/stream", s.streamCtrl)
-		r.Get("/last", s.lastCtrl)
+	router.Mount("/v1").Route(func(r *routegroup.Bundle) {
+		r.HandleFunc("POST /find", s.findCtrl)
+		r.HandleFunc("POST /stream", s.streamCtrl)
+		r.HandleFunc("GET /last", s.lastCtrl)
 	})
 	return router
 }
@@ -77,13 +75,9 @@ func (s *RestServer) router() chi.Router {
 // POST /v1/find, body is Request.  Returns list of LogEntry
 // containers,hosts and excludes lists support regexp in "//", i.e. /regex/
 func (s *RestServer) findCtrl(w http.ResponseWriter, r *http.Request) {
-
 	req := core.Request{}
-
-	err := render.DecodeJSON(r.Body, &req)
-	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, rest.JSON{"error": err.Error()})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		rest.SendErrorJSON(w, r, log.Default(), http.StatusBadRequest, err, "failed to decode request")
 		return
 	}
 
@@ -93,18 +87,16 @@ func (s *RestServer) findCtrl(w http.ResponseWriter, r *http.Request) {
 
 	recs, err := s.DataService.Find(req)
 	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, rest.JSON{"error": err.Error()})
+		rest.SendErrorJSON(w, r, log.Default(), http.StatusBadRequest, err, "failed to find records")
 		return
 	}
 
-	render.JSON(w, r, recs)
+	rest.RenderJSON(w, recs)
 }
 
 // POST /v1/stream?timeout=30s, body is Request.  Stream list of LogEntry, breaks on timeout
 // containers,hosts and excludes lists support regexp in "//", i.e. /regex/
 func (s *RestServer) streamCtrl(w http.ResponseWriter, r *http.Request) {
-
 	req := core.Request{}
 
 	timeout := 5 * time.Minute // max timeout
@@ -112,10 +104,8 @@ func (s *RestServer) streamCtrl(w http.ResponseWriter, r *http.Request) {
 		timeout = tm
 	}
 
-	err := render.DecodeJSON(r.Body, &req)
-	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, rest.JSON{"error": err.Error()})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		rest.SendErrorJSON(w, r, log.Default(), http.StatusBadRequest, err, "failed to decode request")
 		return
 	}
 
@@ -127,15 +117,13 @@ func (s *RestServer) streamCtrl(w http.ResponseWriter, r *http.Request) {
 	for {
 		recs, err := s.DataService.Find(req)
 		if err != nil {
-			render.Status(r, http.StatusBadRequest)
-			render.JSON(w, r, rest.JSON{"error": err.Error()})
+			rest.SendErrorJSON(w, r, log.Default(), http.StatusBadRequest, err, "failed to find records")
 			return
 		}
 		if len(recs) > 0 {
 			for _, rec := range recs {
 				if err := json.NewEncoder(w).Encode(rec); err != nil {
-					render.Status(r, http.StatusInternalServerError)
-					render.JSON(w, r, rest.JSON{"error": err.Error()})
+					rest.SendErrorJSON(w, r, log.Default(), http.StatusInternalServerError, err, "failed to encode record")
 					return
 				}
 			}
@@ -161,8 +149,8 @@ func (s *RestServer) streamCtrl(w http.ResponseWriter, r *http.Request) {
 func (s *RestServer) lastCtrl(w http.ResponseWriter, r *http.Request) {
 	last, err := s.DataService.LastPublished()
 	if err != nil {
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, rest.JSON{"error": err.Error()})
+		rest.SendErrorJSON(w, r, log.Default(), http.StatusBadRequest, err, "failed to get last published")
+		return
 	}
-	render.JSON(w, r, last)
+	rest.RenderJSON(w, last)
 }

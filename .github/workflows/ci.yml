@@ -19,10 +19,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: set up go 1.23
+      - name: set up go 1.24
         uses: actions/setup-go@v6
         with:
-          go-version: "1.23"
+          go-version: "1.24"
         id: go
 
       - name: launch mongodb

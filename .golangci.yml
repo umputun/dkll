@@ -19,6 +19,9 @@ linters:
     - nakedret
     - prealloc
   settings:
+    gosec:
+      excludes:
+        - G118
     govet:
       enable:
         - shadow

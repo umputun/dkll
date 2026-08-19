@@ -36,12 +36,18 @@ func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 		return entry, err
 	}
 
-	// get host
-	entry.Host = strings.Split(line, " ")[0]
-	line = line[len(entry.Host)+1:]
+	// get host, the rest is service/container[pid] followed by the message
+	host, rest, ok := strings.Cut(line, " ")
+	if !ok {
+		return entry, fmt.Errorf("no service in line=[%s]", line)
+	}
+	entry.Host = host
 
-	// get service/container[pid]
-	serviceContainerPid := strings.Split(line, " ")[0]
+	// get service/container[pid], the rest is the message
+	serviceContainerPid, msg, ok := strings.Cut(rest, " ")
+	if !ok {
+		return entry, fmt.Errorf("no message in line=[%s]", line)
+	}
 	serviceContainerPidElems := strings.Split(serviceContainerPid, "/")
 	if strings.HasPrefix(serviceContainerPidElems[0], "docker") && len(serviceContainerPidElems) > 1 { // skip non-docker msgs
 		containerAndPid := serviceContainerPidElems[1]
@@ -56,7 +62,7 @@ func NewEntry(line string, tz *time.Location) (entry LogEntry, err error) {
 		}
 	}
 
-	entry.Msg = strings.TrimSpace(line[len(serviceContainerPid)+1:])
+	entry.Msg = strings.TrimSpace(msg)
 	return entry, nil
 }
 
@@ -75,11 +81,14 @@ func parseTime(line string, tz *time.Location) (ts time.Time, trimmedLine string
 	}
 
 	// try RFC3339
-	dt := strings.Split(line, " ")[0]
+	dt, rest, ok := strings.Cut(line, " ")
 	if ts, err = time.Parse(time.RFC3339, dt); err != nil {
 		return time.Time{}, line, errors.Wrapf(err, "can't extract time from %q", line)
 	}
-	return ts.In(tz), line[len(dt)+1:], nil
+	if !ok {
+		return time.Time{}, line, fmt.Errorf("nothing after time in %q", line)
+	}
+	return ts.In(tz), rest, nil
 }
 
 func (entry LogEntry) String() string {

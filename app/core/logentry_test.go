@@ -29,11 +29,28 @@ func TestNewEntry(t *testing.T) {
 		{"Oct 19 95:29:43 sniper-mgd-1 docker/mongo[888]: 2015-10", LogEntry{},
 			errors.New("can't extract time from \"Oct 19 95:29:43 sniper-mgd-1 docker/mongo[888]: 2015-10\": parsing time \"Oct\" as \"2006-01-02T15:04:05Z07:00\": cannot parse \"Oct\" as \"2006\"")},
 
+		// truncated lines, used to panic on out of range slicing
+		{"Oct 19 15:29:43 ", LogEntry{}, errors.New("no service in line=[]")},
+		{"Oct 19 15:29:43 host-1", LogEntry{}, errors.New("no service in line=[host-1]")},
+		{"Oct 19 15:29:43 host-1 ", LogEntry{}, errors.New("no message in line=[host-1 ]")},
+		{"Oct 19 15:29:43 host-1 docker/mongo[888]:", LogEntry{},
+			errors.New("no message in line=[host-1 docker/mongo[888]:]")},
+		{"2017-05-30T16:13:35-04:00", LogEntry{},
+			errors.New("nothing after time in \"2017-05-30T16:13:35-04:00\"")},
+		{"2017-05-30T16:13:35-04:00 host-1", LogEntry{}, errors.New("no service in line=[host-1]")},
+
 		{
 			"Oct 19 15:29:43 mgd-server-1 docker/mongo[888]: 2016-10-19T19:29:43.236Z I NETWORK " +
 				" [conn453005] end connection 172.17.42.1:35981 (18 connections now open)",
 			LogEntry{Host: "mgd-server-1", Container: "mongo", Pid: 888, TS: time.Date(time.Now().Year(), 10, 19, 15, 29, 43, 0, tz),
 				Msg: "2016-10-19T19:29:43.236Z I NETWORK  [conn453005] end connection 172.17.42.1:35981 (18 connections now open)"},
+			nil,
+		},
+
+		{
+			"May 30 16:49:03 host-dev dhclient: ",
+			LogEntry{Host: "host-dev", Container: "syslog", Pid: 0, TS: time.Date(time.Now().Year(), 5, 30, 16, 49, 3, 0, tz),
+				Msg: ""},
 			nil,
 		},
 

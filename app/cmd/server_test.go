@@ -40,16 +40,14 @@ func TestServer(t *testing.T) {
 	s := ServerCmd{ServerOpts: opts}
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		st := time.Now()
 		ctx, cancel := context.WithCancel(context.Background())
 		time.AfterFunc(time.Second*5, cancel)
 		e := s.Run(ctx)
 		require.NoError(t, e)
 		assert.True(t, time.Since(st).Seconds() >= 5, "should take about 5s")
-		wg.Done()
-	}()
+	})
 
 	time.Sleep(2 * time.Second) // let server start
 	log.Printf("start server checks")

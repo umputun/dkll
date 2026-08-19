@@ -73,10 +73,8 @@ func (f *Forwarder) Run(ctx context.Context) error {
 func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.LogEntry) *sync.WaitGroup {
 	log.Print("[INFO] forwarder's writer activated")
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		buffer := make([]core.LogEntry, 0, 1001)
 
 		// send buffer to publisher and file logger
@@ -113,7 +111,7 @@ func (f *Forwarder) backgroundWriter(ctx context.Context, messages <-chan core.L
 				writeBuff()
 			}
 		}
-	}()
+	})
 
 	return &wg
 }

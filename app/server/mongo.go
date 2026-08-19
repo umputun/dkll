@@ -71,7 +71,7 @@ func NewMongo(client *mdrv.Client, params MongoParams) (res *Mongo, err error) {
 
 // Publish inserts buffer to mongo
 func (m *Mongo) Publish(records []core.LogEntry) (err error) {
-	recs := make([]interface{}, len(records))
+	recs := make([]any, len(records))
 	for i, v := range records {
 		recs[i] = m.makeMongoEntry(v)
 	}
@@ -189,8 +189,8 @@ func (m *Mongo) makeQuery(req core.Request) (b bson.M) {
 	return query
 }
 
-func (m *Mongo) convertListWithRegex(elems []string) []interface{} {
-	var result []interface{}
+func (m *Mongo) convertListWithRegex(elems []string) []any {
+	var result []any
 	for _, elem := range elems {
 		if strings.HasPrefix(elem, "/") && strings.HasSuffix(elem, "/") {
 			result = append(result, primitive.Regex{Pattern: elem[1 : len(elem)-1], Options: ""})

@@ -99,7 +99,7 @@ func (s ServerCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[string]interface{}, error) {
+func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[string]any, error) {
 	log.Printf("[DEBUG] make mongo client for %q", mongoURL)
 	if mongoURL == "" {
 		return nil, nil, errors.New("no mongo URL provided")

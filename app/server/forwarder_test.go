@@ -57,7 +57,7 @@ type mockSyslogBackgroundReader struct{}
 
 func (m *mockSyslogBackgroundReader) Go(context.Context) (<-chan string, error) {
 	ch := make(chan string, 101)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		ch <- fmt.Sprintf("May 30 18:03:28 BigMac.local docker/test123[63415]: some msg %d", i)
 	}
 	ch <- "May 30 18:03:28 BigMac.local docker/err[63415]: some bad msg"

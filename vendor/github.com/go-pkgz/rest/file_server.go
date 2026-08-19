@@ -68,12 +68,14 @@ func NewFileServer(public, local string, options ...FsOpt) (*FS, error) {
 }
 
 // FileServer is a shortcut for making FS with listing disabled and the custom noFound reader (can be nil).
+//
 // Deprecated: the method is for back-compatibility only and user should use the universal NewFileServer instead
 func FileServer(public, local string, notFound io.Reader) (http.Handler, error) {
 	return NewFileServer(public, local, FsOptCustom404(notFound))
 }
 
 // FileServerSPA is a shortcut for making FS with SPA-friendly handling of 404, listing disabled and the custom noFound reader (can be nil).
+//
 // Deprecated: the method is for back-compatibility only and user should use the universal NewFileServer instead
 func FileServerSPA(public, local string, notFound io.Reader) (http.Handler, error) {
 	return NewFileServer(public, local, FsOptCustom404(notFound), FsOptSPA)
@@ -114,7 +116,9 @@ type customFS struct {
 	listing bool
 }
 
-// Open file on FS, for directory enforce index.html and fail on a missing index
+// Open file on FS, for directory enforce index.html and fail on a missing index.
+// Every handle opened here is either returned to the caller or closed, as http.FileServer
+// closes only the file it gets back.
 func (cfs customFS) Open(name string) (http.File, error) {
 
 	f, err := cfs.fs.Open(name)
@@ -127,19 +131,21 @@ func (cfs customFS) Open(name string) (http.File, error) {
 
 	finfo, err := f.Stat()
 	if err != nil {
+		_ = f.Close()
 		return nil, err
 	}
 
 	if finfo.IsDir() {
 		index := strings.TrimSuffix(name, "/") + "/index.html"
-		if _, err := cfs.fs.Open(index); err == nil { // index.html will be served if found
+		indexFile, ierr := cfs.fs.Open(index)
+		if ierr == nil { // index.html will be served if found
+			_ = indexFile.Close() // opened to probe for existence only, http.FileServer opens it again on its own
 			return f, nil
 		}
 		// no index.html in directory
 		if !cfs.listing { // listing disabled
-			if _, err := cfs.fs.Open(index); err != nil {
-				return nil, err
-			}
+			_ = f.Close()
+			return nil, ierr
 		}
 	}
 

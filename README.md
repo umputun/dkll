@@ -99,8 +99,8 @@ type Request struct {
 	Hosts      []string  `json:"hosts,omitempty"`      // list of hosts, can be exact match or regex in from of /regex/
 	Containers []string  `json:"containers,omitempty"` // list of containers, can be regex as well
 	Excludes   []string  `json:"excludes,omitempty"`   // list of excluded containers, can be regex
-	FromTS     time.Time `json:"from_ts,omitempty"`    
-	ToTS       time.Time `json:"to_ts,omitempty"`
+	FromTS     time.Time `json:"from_ts"`
+	ToTS       time.Time `json:"to_ts"`
 }
 ```
 

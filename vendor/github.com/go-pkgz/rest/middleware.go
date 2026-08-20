@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 
 	"github.com/go-pkgz/rest/logger"
@@ -13,12 +14,11 @@ import (
 
 // Wrap converts a list of middlewares to nested calls (in reverse order)
 func Wrap(handler http.Handler, mws ...func(http.Handler) http.Handler) http.Handler {
-	for i := len(mws) - 1; i >= 0; i-- {
-		handler = mws[i](handler)
+	for _, mw := range slices.Backward(mws) {
+		handler = mw(handler)
 	}
 	return handler
 }
-
 
 // AppInfo adds custom app-info to the response header
 func AppInfo(app, author, version string) func(http.Handler) http.Handler {
@@ -37,14 +37,17 @@ func AppInfo(app, author, version string) func(http.Handler) http.Handler {
 	return f
 }
 
-// Ping middleware response with pong to /ping. Stops chain if ping request detected
+// Ping middleware response with pong to /ping. Stops chain if ping request detected.
+// Handles both GET and HEAD methods - HEAD returns headers only without body,
+// which is useful for lightweight health checks by monitoring tools.
 func Ping(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-
-		if r.Method == "GET" && strings.HasSuffix(strings.ToLower(r.URL.Path), "/ping") {
+		if (r.Method == "GET" || r.Method == "HEAD") && strings.HasSuffix(strings.ToLower(r.URL.Path), "/ping") {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("pong"))
+			if r.Method == "GET" {
+				_, _ = w.Write([]byte("pong"))
+			}
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -82,27 +85,29 @@ func Health(path string, checkers ...func(ctx context.Context) (name string, err
 				}
 				resp = append(resp, hh)
 			}
+			status := http.StatusOK
 			if anyError {
-				w.WriteHeader(http.StatusServiceUnavailable)
-			} else {
-				w.WriteHeader(http.StatusOK)
+				status = http.StatusServiceUnavailable
 			}
-			RenderJSON(w, resp)
+			_ = EncodeJSON(w, status, resp)
 		}
 		return http.HandlerFunc(fn)
 	}
 }
 
 // Recoverer is a middleware that recovers from panics, logs the panic and returns a HTTP 500 status if possible.
+// http.ErrAbortHandler is passed through untouched, as net/http relies on it reaching the server to abort
+// the response and close the connection.
 func Recoverer(l logger.Backend) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rvr := recover(); rvr != nil {
-					l.Logf("request panic for %s from %s, %v", r.URL.String(), r.RemoteAddr, rvr)
-					if rvr != http.ErrAbortHandler {
-						l.Logf(string(debug.Stack()))
+					if rvr == http.ErrAbortHandler {
+						panic(rvr)
 					}
+					l.Logf("request panic for %s from %s, %v", r.URL.String(), r.RemoteAddr, rvr)
+					l.Logf(string(debug.Stack()))
 					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				}
 			}()
@@ -147,13 +152,19 @@ func Maybe(mw func(http.Handler) http.Handler, maybeFn func(r *http.Request) boo
 	}
 }
 
-// RealIP is a middleware that sets a http.Request's RemoteAddr to the results
-// of parsing either the X-Forwarded-For or X-Real-IP headers.
+// RealIP is a middleware that sets a http.Request's RemoteAddr to the client's real IP.
+// It checks headers in the following priority order:
+//  1. X-Real-IP - trusted proxy (nginx/reproxy) sets this to actual client
+//  2. CF-Connecting-IP - Cloudflare's header for original client
+//  3. X-Forwarded-For - leftmost public IP (original client in CDN/proxy chain)
+//  4. RemoteAddr - fallback for direct connections
+//
+// Only public IPs are accepted from headers; private/loopback/link-local IPs are skipped.
 //
 // This middleware should only be used if user can trust the headers sent with request.
 // If reverse proxies are configured to pass along arbitrary header values from the client,
 // or if this middleware used without a reverse proxy, malicious clients could set anything
-// as X-Forwarded-For header and attack the server in various ways.
+// as these headers and spoof their IP address.
 func RealIP(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if rip, err := realip.Get(r); err == nil {

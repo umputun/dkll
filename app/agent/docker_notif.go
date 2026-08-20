@@ -2,6 +2,7 @@ package agent
 
 import (
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -152,10 +153,5 @@ func (e *EventNotifier) isAllowed(containerName string) bool {
 }
 
 func contains(e string, s []string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, e)
 }

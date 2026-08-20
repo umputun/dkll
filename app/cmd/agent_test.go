@@ -220,10 +220,8 @@ func startTCPServer(ctx context.Context, t *testing.T, port int, wg *sync.WaitGr
 	}
 
 	log.Print("start test server on ", port)
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		ts, err := net.Listen("tcp4", fmt.Sprintf("localhost:%d", port))
 		require.NoError(t, err)
 		log.Print("test server listen on ", port)
@@ -270,7 +268,7 @@ func startTCPServer(ctx context.Context, t *testing.T, port int, wg *sync.WaitGr
 				}
 			}(conn)
 		}
-	}()
+	})
 	time.Sleep(50 * time.Millisecond)
 }
 

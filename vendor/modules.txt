@@ -12,54 +12,31 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/containerd/log v0.1.0
 ## explicit; go 1.20
 github.com/containerd/log
-# github.com/davecgh/go-spew v1.1.1
-## explicit
-github.com/davecgh/go-spew/spew
-# github.com/docker/docker v28.5.2+incompatible
-## explicit
-github.com/docker/docker/api/types/blkiodev
-github.com/docker/docker/api/types/common
-github.com/docker/docker/api/types/container
-github.com/docker/docker/api/types/filters
-github.com/docker/docker/api/types/mount
-github.com/docker/docker/api/types/network
-github.com/docker/docker/api/types/registry
-github.com/docker/docker/api/types/storage
-github.com/docker/docker/api/types/strslice
-github.com/docker/docker/api/types/swarm
-github.com/docker/docker/api/types/swarm/runtime
-github.com/docker/docker/api/types/versions
-github.com/docker/docker/pkg/homedir
-github.com/docker/docker/pkg/jsonmessage
-github.com/docker/docker/pkg/stdcopy
-# github.com/docker/go-connections v0.6.0
-## explicit; go 1.18
-github.com/docker/go-connections/nat
 # github.com/docker/go-units v0.5.0
 ## explicit
 github.com/docker/go-units
-# github.com/fatih/color v1.18.0
-## explicit; go 1.17
+# github.com/fatih/color v1.19.0
+## explicit; go 1.25.0
 github.com/fatih/color
-# github.com/fsouza/go-dockerclient v1.12.3
-## explicit; go 1.24.0
+# github.com/fsouza/go-dockerclient v1.13.2
+## explicit; go 1.25.5
 github.com/fsouza/go-dockerclient
-# github.com/go-pkgz/lgr v0.12.1
+# github.com/go-pkgz/lgr v0.12.4
 ## explicit; go 1.21
 github.com/go-pkgz/lgr
-# github.com/go-pkgz/mongo/v2 v2.2.1
-## explicit; go 1.19
+# github.com/go-pkgz/mongo/v2 v2.3.0
+## explicit; go 1.25.0
 github.com/go-pkgz/mongo/v2
 # github.com/go-pkgz/repeater v1.2.0
 ## explicit; go 1.20
 github.com/go-pkgz/repeater
 github.com/go-pkgz/repeater/strategy
-# github.com/go-pkgz/rest v1.20.4
-## explicit; go 1.23.0
+# github.com/go-pkgz/rest v1.24.0
+## explicit; go 1.24.0
 github.com/go-pkgz/rest
 github.com/go-pkgz/rest/logger
 github.com/go-pkgz/rest/realip
-# github.com/go-pkgz/routegroup v1.6.0
+# github.com/go-pkgz/routegroup v1.6.1
 ## explicit; go 1.23
 github.com/go-pkgz/routegroup
 # github.com/golang/snappy v1.0.0
@@ -77,8 +54,8 @@ github.com/hashicorp/go-syslog
 # github.com/jessevdk/go-flags v1.6.1
 ## explicit; go 1.20
 github.com/jessevdk/go-flags
-# github.com/klauspost/compress v1.18.2
-## explicit; go 1.23
+# github.com/klauspost/compress v1.19.2
+## explicit; go 1.24
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -89,42 +66,45 @@ github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/kr/text v0.2.0
 ## explicit
-# github.com/mattn/go-colorable v0.1.14
+# github.com/mattn/go-colorable v0.1.15
 ## explicit; go 1.18
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.20
-## explicit; go 1.15
+# github.com/mattn/go-isatty v0.0.24
+## explicit; go 1.20
 github.com/mattn/go-isatty
-# github.com/moby/docker-image-spec v1.3.1
-## explicit; go 1.18
-github.com/moby/docker-image-spec/specs-go/v1
-# github.com/moby/go-archive v0.1.0
-## explicit; go 1.23.0
+# github.com/moby/go-archive v0.3.3
+## explicit; go 1.25
 github.com/moby/go-archive
 github.com/moby/go-archive/compression
+github.com/moby/go-archive/internal/archiveoptions
 github.com/moby/go-archive/tarheader
-# github.com/moby/patternmatcher v0.6.0
+# github.com/moby/moby/api v1.55.0
+## explicit; go 1.24
+github.com/moby/moby/api/pkg/stdcopy
+github.com/moby/moby/api/types/jsonstream
+github.com/moby/moby/api/types/registry
+# github.com/moby/moby/client v0.5.1
+## explicit; go 1.24
+github.com/moby/moby/client/pkg/jsonmessage
+# github.com/moby/patternmatcher v0.6.1
 ## explicit; go 1.19
 github.com/moby/patternmatcher
-# github.com/moby/sys/sequential v0.6.0
-## explicit; go 1.17
+# github.com/moby/sys/sequential v0.7.0
+## explicit; go 1.24.0
 github.com/moby/sys/sequential
-# github.com/moby/sys/user v0.4.0
-## explicit; go 1.17
+# github.com/moby/sys/user v0.4.1
+## explicit; go 1.18
 github.com/moby/sys/user
-# github.com/moby/sys/userns v0.1.0
+# github.com/moby/sys/userns v0.2.0
 ## explicit; go 1.21
 github.com/moby/sys/userns
 # github.com/moby/term v0.5.2
 ## explicit; go 1.18
 github.com/moby/term
 github.com/moby/term/windows
-# github.com/montanaflynn/stats v0.7.1
+# github.com/montanaflynn/stats v0.12.4
 ## explicit; go 1.13
 github.com/montanaflynn/stats
-# github.com/morikuni/aec v1.0.0
-## explicit
-github.com/morikuni/aec
 # github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit; go 1.12
 # github.com/opencontainers/go-digest v1.0.0
@@ -137,16 +117,15 @@ github.com/opencontainers/image-spec/specs-go/v1
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
-# github.com/pmezard/go-difflib v1.0.0
-## explicit
-github.com/pmezard/go-difflib/difflib
-# github.com/sirupsen/logrus v1.9.3
-## explicit; go 1.13
+# github.com/sirupsen/logrus v1.10.1
+## explicit; go 1.23
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.11.1
+# github.com/stretchr/testify v1.12.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/internal/difflib
+github.com/stretchr/testify/internal/spew
 github.com/stretchr/testify/require
 # github.com/xdg-go/pbkdf2 v1.0.0
 ## explicit; go 1.9
@@ -160,7 +139,7 @@ github.com/xdg-go/stringprep
 # github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
 ## explicit; go 1.17
 github.com/youmark/pkcs8
-# go.mongodb.org/mongo-driver v1.17.6
+# go.mongodb.org/mongo-driver v1.17.9
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
@@ -209,8 +188,11 @@ go.mongodb.org/mongo-driver/x/mongo/driver/operation
 go.mongodb.org/mongo-driver/x/mongo/driver/session
 go.mongodb.org/mongo-driver/x/mongo/driver/topology
 go.mongodb.org/mongo-driver/x/mongo/driver/wiremessage
-# golang.org/x/crypto v0.45.0
-## explicit; go 1.24.0
+# go.yaml.in/yaml/v3 v3.0.5
+## explicit; go 1.16
+go.yaml.in/yaml/v3
+# golang.org/x/crypto v0.55.0
+## explicit; go 1.25.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blake2b
@@ -218,17 +200,17 @@ golang.org/x/crypto/blowfish
 golang.org/x/crypto/ocsp
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/scrypt
-# golang.org/x/sync v0.18.0
-## explicit; go 1.24.0
+# golang.org/x/sync v0.22.0
+## explicit; go 1.25.0
 golang.org/x/sync/errgroup
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.38.0
-## explicit; go 1.24.0
+# golang.org/x/sys v0.47.0
+## explicit; go 1.25.0
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/text v0.31.0
-## explicit; go 1.24.0
+# golang.org/x/text v0.41.0
+## explicit; go 1.25.0
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm
 # gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
@@ -243,6 +225,3 @@ gopkg.in/mcuadros/go-syslog.v2/internal/syslogparser/rfc5424
 # gopkg.in/natefinch/lumberjack.v2 v2.2.1
 ## explicit; go 1.13
 gopkg.in/natefinch/lumberjack.v2
-# gopkg.in/yaml.v3 v3.0.1
-## explicit
-gopkg.in/yaml.v3

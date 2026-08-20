@@ -10,6 +10,7 @@ import (
 	log "github.com/go-pkgz/lgr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/umputun/dkll/app/core"
 )
@@ -51,6 +52,44 @@ func TestForwarderFastClose(t *testing.T) {
 
 	assert.Equal(t, 100, len(mp.get()), "all valid records sent to publisher")
 	assert.Equal(t, 100, len(fw.get()), "all valid records sent to file log")
+}
+
+func TestForwarderMalformedLine(t *testing.T) {
+	log.Setup(log.Debug)
+
+	mp := mockPublisher{}
+	fw := mockFileWriter{}
+	f := Forwarder{
+		Publisher: &mp,
+		Syslog: &mockSyslogLinesReader{lines: []string{
+			"Oct 19 15:29:43 ", // truncated line, used to panic on parsing
+			"May 30 18:03:28 BigMac.local docker/test123[63415]: some msg",
+		}},
+		FileWriter: &fw,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(time.Millisecond*700, func() { // tick every 500ms
+		cancel()
+	})
+
+	_ = f.Run(ctx)
+
+	recs := mp.get()
+	require.Equal(t, 1, len(recs), "valid record processed after the malformed one")
+	assert.Equal(t, "some msg", recs[0].Msg)
+	assert.Equal(t, 1, len(fw.get()), "valid record sent to file log")
+}
+
+type mockSyslogLinesReader struct{ lines []string }
+
+func (m *mockSyslogLinesReader) Go(context.Context) (<-chan string, error) {
+	ch := make(chan string, len(m.lines))
+	for _, line := range m.lines {
+		ch <- line
+	}
+	close(ch)
+	return ch, nil
 }
 
 type mockSyslogBackgroundReader struct{}

@@ -28,8 +28,8 @@ func TestClient(t *testing.T) {
 		ShowTS:   true,
 	}}
 
-	lgr.Out(io.Discard)
-	defer lgr.Out(os.Stdout)
+	lgr.Setup(lgr.Out(io.Discard))
+	defer lgr.Setup(lgr.Out(os.Stdout))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(time.Second*5, cancel)

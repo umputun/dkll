@@ -50,3 +50,46 @@ func TestSyslog_Failed(t *testing.T) {
 	assert.NotNil(t, err)
 	t.Log(err)
 }
+
+func TestSyslog_CancelWhileReceiving(t *testing.T) {
+	// regression: shutdown closed the output channel during a send and stopped draining the handler channel
+	for i := range 10 {
+		t.Run(fmt.Sprintf("round %d", i), func(t *testing.T) {
+			s := Syslog{Port: 15600 + i}
+			ctx, cancel := context.WithCancel(context.Background())
+			t.Cleanup(cancel)
+			ch, err := s.Go(ctx)
+			require.NoError(t, err)
+			conn, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", s.Port))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = conn.Close() })
+			go func() {
+				for ctx.Err() == nil {
+					if _, err := fmt.Fprintf(conn, "May 30 18:03:27 dev-1 docker[1187]: message %d\n", i); err != nil {
+						return
+					}
+				}
+			}()
+
+			select {
+			case _, ok := <-ch:
+				require.True(t, ok, "syslog channel closed before any traffic")
+			case <-time.After(5 * time.Second):
+				t.Fatal("no syslog traffic before cancel")
+			}
+			cancel()
+
+			timeout := time.After(5 * time.Second)
+			for {
+				select {
+				case _, ok := <-ch:
+					if !ok {
+						return
+					}
+				case <-timeout:
+					t.Fatal("syslog channel not closed after cancel")
+				}
+			}
+		})
+	}
+}

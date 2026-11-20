@@ -40,16 +40,17 @@ func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 		return nil, errors.Wrap(err, "failed to activate syslog")
 	}
 
-	go func(inCh syslog.LogPartsChannel) {
-		for {
+	// the relay is the only closer of outCh, and it drains inCh until the server stops,
+	// otherwise the go-syslog handler blocks on inCh and server.Wait never returns
+	go func() {
+		defer close(outCh)
+		for parts := range inCh {
 			select {
+			case outCh <- fmt.Sprintf("%s", parts["msg"]):
 			case <-ctx.Done():
-				return
-			case parts := <-inCh:
-				outCh <- fmt.Sprintf("%s", parts["msg"])
 			}
 		}
-	}(inCh)
+	}()
 
 	go func() {
 		<-ctx.Done()
@@ -59,7 +60,6 @@ func (s *Syslog) Go(ctx context.Context) (<-chan string, error) {
 		}
 		s.server.Wait()
 		close(inCh)
-		close(outCh)
 		log.Print("[INFO] syslog server terminated")
 	}()
 

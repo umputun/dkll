@@ -18,6 +18,9 @@ type Forwarder struct {
 	FileWriter FileWriter
 }
 
+//go:generate moq -out mocks/publisher.go -pkg mocks -skip-ensure -fmt goimports . Publisher
+//go:generate moq -out mocks/syslog_reader.go -pkg mocks -skip-ensure -fmt goimports . SyslogBackgroundReader
+
 // Publisher to store
 type Publisher interface {
 	Publish(records []core.LogEntry) (err error)
@@ -52,8 +55,9 @@ func (f *Forwarder) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			writerWg.Wait() // wait for backgroundWriter completion
-			<-syslogCh      // wait for syslog close
+			writerWg.Wait()      // wait for backgroundWriter completion
+			for range syslogCh { //nolint:revive // discard queued input during shutdown
+			}
 			return ctx.Err()
 		case line, ok := <-syslogCh:
 			if !ok {
@@ -64,7 +68,10 @@ func (f *Forwarder) Run(ctx context.Context) error {
 				log.Printf("[WARN] failed to make entry from %q, %v", line, err)
 				continue
 			}
-			messages <- ent
+			select {
+			case messages <- ent:
+			case <-ctx.Done():
+			}
 		}
 	}
 

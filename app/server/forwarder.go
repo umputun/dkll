@@ -18,8 +18,8 @@ type Forwarder struct {
 	FileWriter FileWriter
 }
 
-//go:generate moq -out mocks/publisher.go -pkg mocks -skip-ensure -fmt goimports . Publisher
-//go:generate moq -out mocks/syslog_reader.go -pkg mocks -skip-ensure -fmt goimports . SyslogBackgroundReader
+//go:generate moq -out mocks/publisher_mock.go -pkg mocks -skip-ensure -fmt goimports . Publisher
+//go:generate moq -out mocks/syslog_reader_mock.go -pkg mocks -skip-ensure -fmt goimports . SyslogBackgroundReader
 
 // Publisher to store
 type Publisher interface {

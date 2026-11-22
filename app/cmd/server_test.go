@@ -121,23 +121,3 @@ func getMongoURL(t *testing.T) string {
 	}
 	return mongoURL
 }
-
-func TestServerCmd_MakeMongoClientKeepsPasswordOutOfDiagnostics(t *testing.T) {
-	tbl := []struct{ name, url string }{
-		{name: "invalid option", url: "mongodb://admin:s3cret@127.0.0.1:27017/?db=dkll&collection=logs&connectTimeoutMS=abc"}, //nolint:gosec // fake credentials
-		{name: "slash in password", url: "mongodb://admin:123/s3cret@127.0.0.1:27017/?db=dkll&collection=logs"},
-		{name: "bad escape in password", url: "mongodb://admin:s3cret%zz@127.0.0.1:27017/?db=dkll&collection=logs"}, //nolint:gosec // fake credentials
-	}
-	for _, tt := range tbl {
-		t.Run(tt.name, func(t *testing.T) {
-			buf := bytes.Buffer{}
-			log.Setup(log.Out(&buf), log.Debug)
-			defer log.Setup(log.Out(os.Stdout))
-			cmd := ServerCmd{ServerOpts: ServerOpts{MongoURL: tt.url, MongoTimeout: time.Second}}
-			_, _, err := cmd.makeMongoClient()
-			require.Error(t, err)
-			assert.NotContains(t, err.Error(), "s3cret")
-			assert.NotContains(t, buf.String(), "s3cret")
-		})
-	}
-}

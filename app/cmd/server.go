@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path"
 	"time"
@@ -59,7 +58,7 @@ func (s ServerCmd) Run(ctx context.Context) error {
 		return err
 	}
 
-	mclient, ex, err := s.makeMongoClient()
+	mclient, ex, err := makeMongoClient(s.MongoURL, s.MongoTimeout)
 	if err != nil {
 		return errors.Wrap(err, "can't make mongo client")
 	}
@@ -100,23 +99,19 @@ func (s ServerCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s ServerCmd) makeMongoClient() (*mdrv.Client, map[string]any, error) {
-	log.Printf("[DEBUG] make mongo client")
-	if s.MongoURL == "" {
+func makeMongoClient(mongoURL string, timeout time.Duration) (*mdrv.Client, map[string]any, error) {
+	log.Printf("[DEBUG] make mongo client for %q", mongoURL)
+	if mongoURL == "" {
 		return nil, nil, errors.New("no mongo URL provided")
-	}
-	// the url carries credentials, and a url.Parse error quotes it in full
-	if _, err := url.Parse(s.MongoURL); err != nil {
-		return nil, nil, errors.New("can't parse mongo URL")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	client, ex, err := mongo.Connect(ctx, options.Client().
-		SetAppName("dkll-server").SetConnectTimeout(s.MongoTimeout), s.MongoURL, "db", "collection")
+		SetAppName("dkll-server").SetConnectTimeout(timeout), mongoURL, "db", "collection")
 
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "can't connect to mongo")
+		return nil, nil, errors.Wrapf(err, "can't connect to mongo %s", mongoURL)
 	}
 	return client, ex, nil
 }

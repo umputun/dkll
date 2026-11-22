@@ -34,7 +34,7 @@ in mongodb (capped collection). Optionally, records can be sent to `<host>/<cont
 3. pull containers - `docker-compose pull`
 4. start server - `MONGO_PASSWD=<password> docker-compose up -d`
 
-`MONGO_PASSWD` sets the mongo root password and is inserted into the server's mongo URL, so use letters and digits only.
+`MONGO_PASSWD` sets the mongo root password and is inserted into the server's mongo URL, so use letters and digits only. Mongo keeps the password it was initialized with on the first start, so pass the same value on every later start.
 
 
 command line options and env params:

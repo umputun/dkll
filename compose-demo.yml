@@ -15,10 +15,9 @@ services:
         max-file: "5"
 
     environment:
-      - MONGO=mongodb://mongo-dkll:27017?db=dkll&collection=logs
+      - MONGO=mongodb://admin:${MONGO_PASSWD}@mongo-dkll:27017/?db=dkll&collection=logs&authSource=admin
       - MONGO_DELAY=10s
       - BACK_LOG=/srv/logs
-      - MONGO_PASSWD=${MONGO_PASSWD}
       - DEBUG=true
     ports:
       - 80:8080

@@ -32,7 +32,9 @@ in mongodb (capped collection). Optionally, records can be sent to `<host>/<cont
 1. copy provided `compose-server.yml` to `docker-compose.yml` 
 2. adjust `docker-compose.yml` if needed. 
 3. pull containers - `docker-compose pull`
-4. start server - `docker-compose up -d`
+4. start server - `MONGO_PASSWD=<password> docker-compose up -d`
+
+`MONGO_PASSWD` sets the mongo root password and is inserted into the server's mongo URL, so use letters and digits only. Mongo keeps the password it was initialized with on the first start, so pass the same value on every later start.
 
 
 command line options and env params:
@@ -170,7 +172,7 @@ If you use the provided docker image, by default docker agent will run with `UID
 
 #### Demo mode
 
-Defining `--demo` or `$DEMO` switches agent to demo mode emitting fake log messages from fake containers. Everything preconfigured in `compose-demo.yml` and can be activated with `MONGO_PASSWD=<any random password> docker-compose -f compose-demo.yml up`.  
+Defining `--demo` or `$DEMO` switches agent to demo mode emitting fake log messages from fake containers. Everything preconfigured in `compose-demo.yml` and can be activated with `MONGO_PASSWD=<any random alphanumeric password> docker-compose -f compose-demo.yml up`.  
 
 ## Client
 

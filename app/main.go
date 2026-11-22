@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	log "github.com/go-pkgz/lgr"
+	"github.com/go-pkgz/mongo/v2"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/umputun/dkll/app/cmd"
@@ -46,7 +47,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	setupLog(opts.Dbg)
+	setupLog(opts.Dbg, mongo.SecretsMongoUrls(opts.Server.MongoURL)...)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() { // catch signal and invoke graceful termination
@@ -75,10 +76,10 @@ func main() {
 	log.Printf("[ERROR] unknown command")
 }
 
-func setupLog(dbg bool) {
+func setupLog(dbg bool, secrets ...string) {
 	if dbg {
-		log.Setup(log.Debug, log.CallerFile, log.CallerFunc, log.Msec, log.LevelBraces)
+		log.Setup(log.Debug, log.CallerFile, log.CallerFunc, log.Msec, log.LevelBraces, log.Secret(secrets...))
 		return
 	}
-	log.Setup(log.Msec, log.LevelBraces)
+	log.Setup(log.Msec, log.LevelBraces, log.Secret(secrets...))
 }

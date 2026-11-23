@@ -13,6 +13,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      mongo:
+        image: mongo:9
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping: 1})'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: checkout
         uses: actions/checkout@v7
@@ -24,11 +35,6 @@ jobs:
         with:
           go-version: "1.26"
         id: go
-
-      - name: launch mongodb
-        uses: wbari/start-mongoDB@v0.2
-        with:
-          mongoDBVersion: "4.2"
 
       - name: build and test
         run: |
